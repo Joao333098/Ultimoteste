@@ -1,0 +1,191 @@
+vou explicar claramente o que provavelmente está causando os erros que você descreveu (detecção errada de idioma, correções erradas, sem detecção), como isso surge no seu código e o que mudar na prática. Depois mando o texto completo (prompt) pronto pra usar — tudo em Português e pronto pra colar.
+
+1) Explicação dos erros que você está enfrentando (detalhada e ligada ao código)
+	1.	Interim text [INTERIM] sendo enviado/considerado
+	•	O seu código marca interino com [INTERIM] e inclui isso no transcript. Se você enviar esse texto para a IA ou para a detecção, vai introduzir ruído (fragmentos incompletos, palavras cortadas) e a IA pode interpretar mal o idioma.
+	•	Onde ocorre: setTranscript → você concatena interim ao texto com newTranscript += '[INTERIM]' + interimTranscript.trim();. Depois você envia finalText em muitos lugares, mas pode haver casos em que o interim ainda passa.
+	2.	Poucos dados úteis para detecção (fragmentação)
+	•	Você chama detectLanguage(finalText) com trechos curtos; se o finalText for muito curto (palavras isoladas) a IA/fallback pode errar.
+	•	Onde afeta: if (textLength >= 15 && isDifferentText && (now - lastDetectionTimeRef.current) > 3000) { detectLanguage(finalText); } — bom, mas 15 chars às vezes é pouco (e pode ser só “ok” ou “uh”).
+	3.	Só usa maxAlternatives = 1 (ou confia em 1 alternativa)
+	•	Embora no seu código você tenha recognition.maxAlternatives = 1, você deveria usar alternativas (maxAlternatives = 3) e enviar todas para a IA. O ASR retorna alternativas melhores que ajudam a IA escolher corretamente.
+	•	Onde modificar: initializeRecognition().
+	4.	Threshold de confiança muito alto + falta de rolling majority
+	•	Você exige data.confidence > 0.95 antes de considerar trocar idioma automaticamente — isso evita trocas, mas também pode impedir mudança quando de fato o idioma mudou e a IA tem 0.92.
+	•	Além disso, você usa languageDetectionCountRef.current[langCode]++ e troca em 3 confirmações, mas não tem uma fila/rolling majority para evitar flutuações ao longo do tempo.
+	5.	Race conditions ao reiniciar reconhecimento
+	•	Quando troca idioma você chama recognitionRef.current.stop() e após 1s chama startRecording() — isso pode conflitar com onend, onerror do recognition atual e causar estados inconsistentes (reconhecimento parado, isRecording false, etc.).
+	•	Onde: switchLanguage() e startRecording()/stopRecording().
+	6.	Falso positivo por palavras compartilhadas entre idiomas
+	•	Palavras como “ok”, “event”, nomes próprios, ou trechos curtos podem ativar o fallback que conta palavras de cada idioma e escolher errado. Seu fallback atual usa listas, mas sem penalizar palavras curtas ou sem considerar proporção suficiente entre melhor e segundo lugar.
+	7.	Envio de muito texto histórico para tradução/enhance
+	•	Enviar o transcript inteiro (com histórico) para tradução/enhance dá mais chance de confusão. Melhor enviar apenas o último trecho final sem [INTERIM].
+
+2) Efeitos observáveis (o que você vê)
+	•	Fala em inglês, mas o sistema responde “Português (BR)” e corrige palavras como se fosse pt. Resultado: tradução/correção errada.
+	•	A língua troca e re-troca várias vezes (flapping) quando frase curta ou ruído.
+	•	A IA “corrige” frases trocando sentido (porque foi alimentada com texto parcial / interim).
+
+3) Correções práticas (passo-a-passo rápido que você já pode aplicar)
+
+Vou listar mudanças simples, depois dou trechos de código a trocar.
+	1.	Sempre remover [INTERIM] antes de enviar para IA/translate/detect.
+	•	Faça const cleanText = finalText.replace(/\[INTERIM\].*$/, '').trim()
+	2.	Aumentar alternativas
+	•	recognition.maxAlternatives = 3 e incluir as alternativas no payload para /api/ai/detect-language e /api/ai/enhance.
+	3.	Mandar apenas o trecho final útil
+	•	Envie no máximo a última frase (ou os últimos 300 chars). Só enviar quando finalText.length >= 25 (ou 2+ palavras com pontuação final).
+	4.	Ajustar limiar de confiança
+	•	Use data.confidence > 0.9 em vez de 0.95. Combine com uma fila de 5 detecções (mude se 3/5 forem iguais).
+	5.	Implementar fila/rolling majority
+	•	Mantenha recentLanguageDetections = [] de tamanho 5; a troca ocorre se count(langCode) >= 3.
+	6.	Usar alternativas ASR para reduzir ruído
+	•	Envie alternatives: [transcriptAlt1, transcriptAlt2, transcriptAlt3] no body para a IA.
+	7.	Silence/VAD antes de processar
+	•	Só finalize e envie à IA depois de detectar silêncio por 400–600ms (você já tem audioLevel; use um pequeno VAD).
+	8.	UI: botão de override manual
+	•	Permitir “Manter idioma” / “Mudar para Inglês” para evitar frustração.
+
+4) Trechos de código sugeridos (substituições rápidas)
+
+A) Em initializeRecognition() — setar alternativas:
+
+// antes
+recognition.maxAlternatives = 1;
+
+// depois
+recognition.maxAlternatives = 3;
+
+B) Em recognition.onresult — coletar alternativas e limpar [INTERIM]:
+
+// dentro do loop de resultados, para quando isFinal
+const alternatives = [];
+for (let alt = 0; alt < Math.min(3, event.results[i].length); alt++) {
+  alternatives.push({
+    transcript: event.results[i][alt].transcript.trim(),
+    confidence: event.results[i][alt].confidence ?? null
+  });
+}
+
+// quando for enviar para detectLanguage/enhance/translate:
+const finalTextClean = finalText.replace(/\[INTERIM\].*$/, '').trim();
+const payload = {
+  text: finalTextClean.slice(-300), // últimos 300 chars
+  alternatives,
+  currentLanguage,
+  recentDetections: Object.keys(languageDetectionCountRef.current)
+};
+detectLanguage(finalTextClean);
+// ou enhanceText({ text: finalTextClean, targetLanguage: currentLanguage });
+
+C) Rolling majority simples (adicionar refs no topo):
+
+const recentDetectionsRef = useRef<string[]>([]); // guardar últimos 5 languageCodes
+
+// ao receber data.languageCode
+recentDetectionsRef.current.push(langCode);
+if (recentDetectionsRef.current.length > 5) recentDetectionsRef.current.shift();
+
+const count = recentDetectionsRef.current.filter(x => x === langCode).length;
+if (data.confidence > 0.9 && count >= 3) {
+  // confirmar troca
+  switchLanguage(langCode);
+  recentDetectionsRef.current = [];
+}
+
+5) Mensagens de log úteis (para debug)
+
+Adicione logs como:
+	•	console.log('ALTs:', alternatives)
+	•	console.log('Detecção IA:', data.languageCode, data.confidence)
+	•	console.log('Fila detecções:', recentDetectionsRef.current)
+
+Isso ajuda a ver se erros são por ASR, por IA ou por threshold.
+
+6) Texto completo pronto (prompt + fallback + exemplos) — cole e use no seu /api/ai/enhance e /api/ai/detect-language
+
+Prompt completo para /api/ai/enhance (system prompt + body)
+
+{
+  "system": "Você é um assistente de pós-processamento de transcrições de voz. Receberá trechos de texto (texto pode conter fragmentos parcialmente reconhecidos). Sua tarefa: 1) limpar o texto (remover marcadores como [INTERIM], corrigir pontuação básica e capitalização); 2) retornar a versão 'correctedText' que preserva sentido e melhora fluidez sem inventar fatos; 3) detectar idioma dominante (languageCode e languageName) e fornecer confidence 0.0-1.0; 4) detectar code-switching (segmentos em idioma diferente) e apontar índices; 5) sugerir uma recomendação curta entre: 'manter <lang>', 'mudar para <lang>', 'pedir confirmação', 'habilitar tradução para <lang>'; 6) explicar 1-2 razões (curtas) para a recomendação. Retorne SEMPRE JSON válido com as chaves: cleanedText, correctedText, languageCode, languageName, confidence, codeSwitch, recommendation, reasons.",
+  "request_example": {
+    "text": "oi tudo bem how are you [INTERIM] i am fine but o microfone ta ruim",
+    "alternatives": [
+      {"transcript": "oi tudo bem how are you", "confidence": null},
+      {"transcript": "oi tudo bem how are you I am fine", "confidence": null},
+      {"transcript": "oi tudo bem how are you I am fine but", "confidence": null}
+    ],
+    "context": {
+      "currentLanguage": "pt-BR",
+      "recentDetections": ["pt-BR","en-US"],
+      "lastRecognitionConfidence": 0.65
+    }
+  }
+}
+
+Resposta esperada (exemplo):
+
+{
+  "cleanedText": "Oi tudo bem? How are you? I am fine but o microfone tá ruim.",
+  "correctedText": "Oi, tudo bem? How are you? I'm fine, but o microfone está ruim.",
+  "languageCode": "pt-BR",
+  "languageName": "Português (BR)",
+  "confidence": 0.88,
+  "codeSwitch": [
+    {"indexStart": 0, "indexEnd": 12, "languageCode": "pt-BR"},
+    {"indexStart": 13, "indexEnd": 34, "languageCode": "en-US"},
+    {"indexStart": 35, "indexEnd": 64, "languageCode": "pt-BR"}
+  ],
+  "recommendation": "Manter pt-BR como idioma principal; habilitar tradução automática para trechos em en-US",
+  "reasons": [
+    "Presença de frases completas em português e inglês (code-switch)",
+    "Confiança global adequada (0.88) e trechos em inglês bem formados"
+  ]
+}
+
+
+⸻
+
+Prompt curto para /api/ai/detect-language (fallback)
+
+Por favor detecte o idioma deste trecho. Retorne JSON: { languageCode, languageName, confidence }.
+Se houver mistura de idiomas, retorne array segments: [{start,end,languageCode,confidence}].
+Priorize: en-US, pt-BR, es-ES. Receba também 'alternatives' (opcionais) e use-as para decisão.
+
+Payload de envio (exemplo):
+
+{
+  "text": "Hello, can you hear me?",
+  "alternatives": [
+    "Hello can you hear me",
+    "Hello can you hear me now",
+    "Hello can you hear me please"
+  ]
+}
+
+Resposta exemplo:
+
+{
+  "languageCode": "en-US",
+  "languageName": "English (US)",
+  "confidence": 0.94,
+  "segments": []
+}
+
+
+⸻
+
+7) Checklist final rápido (faça isto agora)
+	•	recognition.maxAlternatives = 3
+	•	Remover [INTERIM] antes de enviar qualquer coisa à IA
+	•	Enviar no máximo 300 chars / última frase para a IA
+	•	Ajustar threshold: confidence > 0.9
+	•	Implementar recentDetectionsRef (últimas 5) e exigir 3/5 para trocar idioma
+	•	Armazenar alternativas e enviar à IA
+	•	Adicionar botão UI para override manual
+
+8) Se quiser eu aplico um patch direto no seu arquivo
+
+Posso gerar o trecho de código completo com as mudanças mínimas já feitas no seu useSpeechRecognition() (substituindo as partes críticas: maxAlternatives, tratamento de onresult para coletar alternativas e enviar apenas finalTextClean, implementação do recentDetectionsRef). Se quiser que eu já gere esse patch aqui, diga “Sim — gera o patch” e eu envio o arquivo pronto pra colar.
+
+⸻

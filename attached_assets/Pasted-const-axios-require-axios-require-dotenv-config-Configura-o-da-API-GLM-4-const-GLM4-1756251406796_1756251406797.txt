@@ -1,0 +1,204 @@
+const axios = require('axios');
+require('dotenv').config();
+
+// Configuração da API GLM-4
+const GLM4_CONFIG = {
+    API_KEY: process.env.GLM4_API_KEY || 'seu_api_key_aqui',
+    ENDPOINT: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    MODEL: 'glm-4'
+};
+
+// Cliente para a API GLM-4
+class GLM4Client {
+    constructor(apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    /**
+     * Envia mensagem para o GLM-4
+     * @param {string} message - Mensagem do usuário
+     * @param {Array} history - Histórico da conversa
+     * @param {Object} options - Opções adicionais
+     * @returns {Promise<string>} - Resposta da IA
+     */
+    async sendMessage(message, history = [], options = {}) {
+        try {
+            const messages = [
+                {
+                    role: "system",
+                    content: "Você é um assistente AI útil e prestativo. Responda de forma clara e concisa."
+                },
+                ...history,
+                {
+                    role: "user",
+                    content: message
+                }
+            ];
+
+            const response = await axios.post(
+                GLM4_CONFIG.ENDPOINT,
+                {
+                    model: GLM4_CONFIG.MODEL,
+                    messages: messages,
+                    temperature: options.temperature || 0.7,
+                    max_tokens: options.max_tokens || 1000,
+                    web_search: options.web_search || false
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 30000
+                }
+            );
+
+            return response.data.choices[0].message.content;
+        } catch (error) {
+            console.error('Erro na API GLM-4:', {
+                message: error.message,
+                status: error.response?.status,
+                data: error.response?.data
+            });
+            throw error;
+        }
+    }
+
+    /**
+     * Exemplo de chat contínuo
+     * @param {Array} initialHistory - Histórico inicial
+     */
+    async startChat(initialHistory = []) {
+        let history = initialHistory;
+        
+        console.log('💬 Chat com GLM-4 iniciado! Digite "sair" para terminar.\n');
+        
+        while (true) {
+            const readline = require('readline').createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+
+            const userMessage = await new Promise(resolve => {
+                readline.question('👤 Você: ', resolve);
+            });
+
+            readline.close();
+
+            if (userMessage.toLowerCase() === 'sair') {
+                console.log('👋 Chat encerrado!');
+                break;
+            }
+
+            try {
+                console.log('🔄 Processando...');
+                
+                const response = await this.sendMessage(userMessage, history, {
+                    temperature: 0.7,
+                    web_search: true
+                });
+
+                console.log(`🤖 GLM-4: ${response}\n`);
+
+                // Atualizar histórico
+                history.push(
+                    { role: "user", content: userMessage },
+                    { role: "assistant", content: response }
+                );
+
+                // Manter apenas as últimas 10 mensagens no histórico
+                if (history.length > 20) {
+                    history = history.slice(-20);
+                }
+
+            } catch (error) {
+                console.log('❌ Erro:', error.message);
+            }
+        }
+    }
+}
+
+// Exemplos de uso
+async function demonstrateGLM4() {
+    const client = new GLM4Client(GLM4_CONFIG.API_KEY);
+
+    console.log('🚀 Demonstração da API GLM-4\n');
+
+    // Exemplo 1: Pergunta simples
+    try {
+        console.log('1. 📝 Pergunta simples:');
+        const response1 = await client.sendMessage("Explique o que é inteligência artificial em 2 frases.");
+        console.log(`Resposta: ${response1}\n`);
+    } catch (error) {
+        console.log('Erro no exemplo 1:', error.message);
+    }
+
+    // Exemplo 2: Com web search
+    try {
+        console.log('2. 🌐 Com pesquisa na web:');
+        const response2 = await client.sendMessage(
+            "Quais as notícias mais recentes sobre tecnologia?",
+            [],
+            { web_search: true }
+        );
+        console.log(`Resposta: ${response2}\n`);
+    } catch (error) {
+        console.log('Erro no exemplo 2:', error.message);
+    }
+
+    // Exemplo 3: Com histórico de conversa
+    try {
+        console.log('3. 💭 Conversa com contexto:');
+        const history = [
+            {
+                role: "user",
+                content: "Meu nome é João e gosto de programação."
+            },
+            {
+                role: "assistant",
+                content: "Olá João! É ótimo saber que você gosta de programação. Em que linguagens você trabalha?"
+            }
+        ];
+
+        const response3 = await client.sendMessage(
+            "Estudo JavaScript e Python. Qual você recomenda para iniciantes?",
+            history
+        );
+        console.log(`Resposta: ${response3}\n`);
+    } catch (error) {
+        console.log('Erro no exemplo 3:', error.message);
+    }
+
+    // Exemplo 4: Chat interativo
+    console.log('4. 💬 Chat interativo:');
+    await client.startChat();
+}
+
+// Tipos de mensagens suportadas pela API
+const MESSAGE_TYPES = {
+    SYSTEM: {
+        role: "system",
+        description: "Define o comportamento do assistente"
+    },
+    USER: {
+        role: "user", 
+        description: "Mensagem do usuário"
+    },
+    ASSISTANT: {
+        role: "assistant",
+        description: "Resposta da IA"
+    }
+};
+
+// Exemplo de formato de mensagem
+const exampleMessage = {
+    role: "user",
+    content: "Olá, como você funciona?"
+};
+
+// Executar demonstração
+if (require.main === module) {
+    demonstrateGLM4().catch(console.error);
+}
+
+module.exports = { GLM4Client, MESSAGE_TYPES };

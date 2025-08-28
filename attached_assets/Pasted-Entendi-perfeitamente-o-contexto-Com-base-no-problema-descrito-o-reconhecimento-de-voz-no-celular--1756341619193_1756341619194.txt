@@ -1,0 +1,258 @@
+Entendi perfeitamente o contexto! Com base no problema descrito (o reconhecimento de voz no celular interpretando a frase correta em inglês “War does not begin when bombs explode, but when dialogue ceases and the hope of understanding is lost in the silence of selfishness” como algo confuso como “Word Snow bones Explorer When Die and roupa understanding Lost the Silence of Souness”) e no código fornecido (useSpeechRecognition e RecordingControls), vou criar um prompt otimizado para o backend de IA corrigir a transcrição, detectar o idioma corretamente e melhorar a compreensão, especialmente em cenários móveis com sotaques ou ruídos. Além disso, vou sugerir pequenas melhorias no frontend para ajudar o usuário a lidar com esses erros.
+O prompt será projetado para:
+	•	Corrigir transcrições erradas, mapeando palavras foneticamente semelhantes (ex.: “Word Snow” → “War does”).
+	•	Detectar o idioma correto (inglês, neste caso) mesmo com erros graves.
+	•	Preservar o contexto e tom da fala original (metafórico, poético).
+	•	Lidar com desafios de dispositivos móveis, como sotaques brasileiros em inglês ou ruído de fundo.
+	•	Integrar com o RecordingControls para feedback claro ao usuário.
+Prompt para a IA (Backend)
+Este prompt será usado nas chamadas de API (/api/ai/detect-language e /api/ai/enhance) do hook useSpeechRecognition. Ele foca em corrigir transcrições confusas, detectar idiomas com precisão e fornecer explicações úteis para o usuário, que podem ser exibidas no frontend (RecordingControls) via toasts ou no componente TranslationDialog.
+Você é um assistente de reconhecimento de fala avançado, especializado em corrigir transcrições imprecisas de áudio capturado em dispositivos móveis, onde sotaques, ruídos de fundo ou fala rápida podem causar erros graves. Sua tarefa é analisar um texto transcrito potencialmente confuso, corrigir erros mantendo o significado original, detectar o idioma correto e fornecer explicações claras para o usuário. O usuário pode falar em inglês, português ou outros idiomas, com possível mistura (ex.: palavras em português como "roupa" em uma frase em inglês) ou sotaque (ex.: inglês com sotaque brasileiro).
+
+**Entrada fornecida**:
+- Texto transcrito (potencialmente errado): "{text}" (exemplo: "Word Snow bones Explorer When Die and roupa understanding Lost the Silence of Souness")
+- Idioma atual do sistema: {currentLanguage} (ex.: "en-US", "pt-BR", "es-ES")
+- Contexto: O usuário está falando em um celular, possivelmente em inglês com sotaque não nativo ou em um ambiente com ruído. A fala pode ser poética, metafórica ou conter vocabulário complexo.
+
+**Tarefas**:
+1. **Correção da Transcrição**:
+   - Analise o texto transcrito e corrija erros com base em similaridade fonética e contexto semântico. Exemplo: "Word Snow" pode ser "War does", "bones Explorer" pode ser "bombs explode", "roupa" pode ser "hope", "Souness" pode ser "selfishness".
+   - Preserve o tom original (ex.: poético, formal, casual) e evite alterar o significado ou adicionar conteúdo novo.
+   - Considere sotaques (ex.: um brasileiro falando inglês pode soar como português em algumas palavras).
+   - Se o texto for muito curto ou ininteligível, sugira que o usuário fale mais claro.
+
+2. **Detecção de Idioma**:
+   - Identifique o idioma principal (ex.: en-US, pt-BR, es-ES) com base na estrutura e vocabulário, mesmo com erros graves.
+   - Evite confundir idiomas semelhantes (ex.: português e espanhol) ou forçar detecção errada (ex.: inglês detectado como português por causa de "roupa").
+   - Se houver mistura de idiomas, priorize o idioma dominante com base na coerência semântica.
+   - Atribua confiança alta (>0.9) apenas se a detecção for clara; caso contrário, mantenha o idioma atual ou sugira clarificação.
+
+3. **Saída Esperada**:
+   - **correctedText**: Texto corrigido (ex.: "War does not begin when bombs explode, but when dialogue ceases and the hope of understanding is lost in the silence of selfishness")
+   - **language**: Nome do idioma detectado (ex.: "English (US)")
+   - **languageCode**: Código do idioma (ex.: "en-US")
+   - **confidence**: Confiança da correção e detecção (0.0 a 1.0)
+   - **explanation**: Explicação detalhada das correções e detecção, adequada para exibir ao usuário (ex.: "Corrigido 'Word Snow' para 'War does' e 'roupa' para 'hope' com base em fonética e contexto poético em inglês. Idioma detectado: English (US).")
+   - **suggestion**: Se confiança < 0.7, sugira uma ação ao usuário (ex.: "Fale mais devagar ou verifique o microfone para melhorar a transcrição.")
+
+**Instruções Adicionais**:
+- Use conhecimento de fonética para mapear erros comuns (ex.: "Souness" → "selfishness" por similaridade sonora).
+- Evite correções que alterem o sentido (ex.: não transforme uma metáfora como "silence of selfishness" em algo literal).
+- Se detectar palavras em outro idioma (ex.: "roupa" em português), considere-as como erros de reconhecimento e substitua por equivalentes fonéticos no idioma principal.
+- Para textos confusos, compare com padrões de frases comuns em inglês (ex.: estruturas como "does not begin when" indicam inglês).
+- Se o texto parecer ininteligível, retorne confiança baixa (<0.5) e uma sugestão clara.
+
+**Exemplo de Entrada e Saída**:
+- Entrada: 
+  - Texto: "Word Snow bones Explorer When Die and roupa understanding Lost the Silence of Souness"
+  - currentLanguage: "en-US"
+- Saída:
+  {
+    "correctedText": "War does not begin when bombs explode, but when dialogue ceases and the hope of understanding is lost in the silence of selfishness",
+    "language": "English (US)",
+    "languageCode": "en-US",
+    "confidence": 0.92,
+    "explanation": "Corrigido 'Word Snow' para 'War does', 'bones Explorer' para 'bombs explode', 'roupa' para 'hope', 'Souness' para 'selfishness' com base em similaridade fonética e contexto poético em inglês.",
+    "suggestion": null
+  }
+
+**Caso de Erro**:
+- Se o texto for muito confuso (ex.: <5 palavras úteis ou confiança <0.5), retorne:
+  {
+    "correctedText": null,
+    "language": {currentLanguage},
+    "languageCode": {currentLanguage},
+    "confidence": 0.4,
+    "explanation": "Texto muito confuso para corrigir com precisão.",
+    "suggestion": "Tente falar mais devagar, mais alto ou em um ambiente com menos ruído."
+  }
+Integração com o Código
+Para usar este prompt no seu hook useSpeechRecognition, modifique as chamadas de API para incluir o prompt. Além disso, integre o feedback (explanation e suggestion) no frontend (RecordingControls) para informar o usuário sobre correções e sugerir ações.
+Modificações no `useSpeechRecognition`
+	1	Atualizar detectLanguage e enhanceText: Inclua o prompt no payload da API e processe a saída para atualizar o transcript e exibir feedback. // Para detecção de idioma
+	2	const { mutate: detectLanguage } = useMutation({
+	3	  mutationFn: async (text: string) => {
+	4	    const response = await apiRequest('POST', '/api/ai/detect-language', {
+	5	      text,
+	6	      currentLanguage,
+	7	      prompt: `Você é um assistente de reconhecimento de fala avançado... [insira o prompt acima com {text} = "${text}" e {currentLanguage} = "${currentLanguage}"]`
+	8	    });
+	9	    return response.json();
+	10	  },
+	11	  onSuccess: (data) => {
+	12	    setDetectedLanguage(data.language);
+	13	    setConfidence(data.confidence);
+	14	    setCurrentLanguage(data.languageCode);
+	15	    if (data.correctedText) {
+	16	      setTranscript(data.correctedText); // Atualiza transcrição com correção
+	17	    }
+	18	    toast({
+	19	      title: `🌐 Idioma: ${data.language}`,
+	20	      description: data.explanation || "Idioma detectado com sucesso.",
+	21	      variant: data.suggestion ? "destructive" : "default",
+	22	      action: data.suggestion ? (
+	23	        {data.suggestion}
+	24	      ) : undefined,
+	25	    });
+	26	    if (!detectedLanguages.includes(data.languageCode)) {
+	27	      setDetectedLanguages(prev => [...prev, data.languageCode]);
+	28	      setLanguageCount(prev => prev + 1);
+	29	    }
+	30	  },
+	31	  onError: (error, text) => {
+	32	    console.log("❌ Falha na detecção de IA, usando fallback");
+	33	    detectLanguageFromTextFallback(text);
+	34	  }
+	35	});
+	36	
+	37	// Para aprimoramento/correção
+	38	const { mutate: enhanceText } = useMutation({
+	39	  mutationFn: async ({ text, targetLanguage }: { text: string; targetLanguage: string }) => {
+	40	    const response = await apiRequest('POST', '/api/ai/enhance', {
+	41	      text,
+	42	      targetLanguage,
+	43	      prompt: `Você é um assistente de reconhecimento de fala avançado... [insira o prompt acima com {text} = "${text}" e {currentLanguage} = "${targetLanguage}"]`
+	44	    });
+	45	    return response.json();
+	46	  },
+	47	  onSuccess: (data) => {
+	48	    setConfidence(data.confidence);
+	49	    if (enhancedMode && data.correctedText) {
+	50	      setTranscript(data.correctedText); // Substitui com texto corrigido
+	51	      toast({
+	52	        title: "Transcrição Corrigida",
+	53	        description: data.explanation || "Texto aprimorado pela IA.",
+	54	        variant: data.suggestion ? "destructive" : "default",
+	55	        action: data.suggestion ? (
+	56	          {data.suggestion}
+	57	        ) : undefined,
+	58	      });
+	59	    }
+	60	  }
+	61	});
+	62	
+	63	Adicionar Timeout para Não Detecção: No onresult do recognition, adicione um alerta se não houver resultados úteis por 5 segundos: recognition.onresult = (event: any) => {
+	64	  let finalTranscript = '';
+	65	  let interimTranscript = '';
+	66	  for (let i = event.resultIndex; i < event.results.length; i++) {
+	67	    const transcriptPart = event.results[i][0].transcript;
+	68	    if (event.results[i].isFinal) {
+	69	      finalTranscript += transcriptPart;
+	70	    } else {
+	71	      interimTranscript += transcriptPart;
+	72	    }
+	73	  }
+	74	  setTranscript(prev => {
+	75	    const cleanPrevTranscript = prev.replace(/\[INTERIM\].*$/, '');
+	76	    let newTranscript = cleanPrevTranscript;
+	77	    if (finalTranscript.trim()) {
+	78	      newTranscript += (newTranscript ? ' ' : '') + finalTranscript.trim();
+	79	      const now = Date.now();
+	80	      const textLength = finalTranscript.length;
+	81	      const isDifferentText = finalTranscript !== lastProcessedTextRef.current;
+	82	      if (textLength >= 15 && isDifferentText && (now - lastDetectionTimeRef.current) > 3000) {
+	83	        detectLanguage(finalTranscript);
+	84	        lastDetectionTimeRef.current = now;
+	85	        lastProcessedTextRef.current = finalTranscript;
+	86	      }
+	87	      if (enhancedMode && textLength > 10) {
+	88	        enhanceText({ text: finalTranscript, targetLanguage: currentLanguage });
+	89	      }
+	90	      if (autoTranslationEnabled && finalTranscript.trim().length > 3) {
+	91	        translateText({ text: finalTranscript, targetLanguage: translationTargetLanguage || "en-US" });
+	92	      }
+	93	    }
+	94	    if (interimTranscript.trim()) {
+	95	      newTranscript += '[INTERIM]' + interimTranscript.trim();
+	96	    }
+	97	    updateWordCount(newTranscript.replace(/\[INTERIM\].*$/, ''));
+	98	    return newTranscript;
+	99	  });
+	100	  // Adicionar verificação de silêncio
+	101	  if (!finalTranscript && !interimTranscript && recordingTime > 5) {
+	102	    toast({
+	103	      title: "Sem Áudio Detectado",
+	104	      description: "Fale mais alto ou verifique o microfone.",
+	105	      variant: "destructive",
+	106	    });
+	107	  }
+	108	};
+	109	
+Modificações no `RecordingControls`
+Para melhorar a experiência do usuário, adicione feedback visual sobre correções e sugestões da IA, usando os dados retornados pelo prompt (explanation e suggestion). Além disso, facilite a seleção manual de idioma quando a detecção falha.
+	1	Exibir Explicação das Correções: Adicione uma seção no RecordingControls para mostrar a explanation retornada pela IA, ajudando o usuário a entender o que foi corrigido.
+	2	  Detalhes da Correção
+	3	  
+	4	    {transcript && confidence < 0.9
+	5	      ? "A IA corrigiu a transcrição. Verifique o resultado ou fale mais claro."
+	6	      : "Transcrição precisa. Continue falando!"}
+	7	  
+	8	
+	9	
+	10	Botão para Forçar Re-detecção: Adicione um botão para o usuário forçar uma nova detecção de idioma ou correção, caso a IA erre (ex.: detectar português em vez de inglês).  {
+	11	    if (transcript) {
+	12	      detectLanguage(transcript); // Reanalisa o idioma
+	13	      enhanceText({ text: transcript, targetLanguage: currentLanguage }); // Reaplica correção
+	14	    }
+	15	  }}
+	16	  variant="outline"
+	17	  className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+	18	  disabled={isRecording || !transcript}
+	19	>
+	20	  
+	21	  Reanalisar Idioma e Correção
+	22	
+	23	
+	24	Feedback Visual para Sugestões: No TranslationDialog (não fornecido, mas assumo que gerencia traduções), adicione um campo para exibir suggestion da IA, como “Fale mais devagar ou verifique o microfone.” Isso pode ser passado como prop para o componente. // No RecordingControls, passe a suggestion para o TranslationDialog
+	25	 setIsTranslationDialogOpen(false)}
+	26	  currentTranscript={transcript}
+	27	  autoTranslationEnabled={autoTranslationEnabled}
+	28	  translationTargetLanguage={translationTargetLanguage}
+	29	  onToggleAutoTranslation={onToggleAutoTranslation}
+	30	  onSetTranslationTarget={onSetTranslationTarget}
+	31	  correctionSuggestion={/* passe data.suggestion do mutate */}
+	32	/>
+	33	
+Sugestões Adicionais
+	1	Teste com Cenários Reais: Use o exemplo fornecido (“Word Snow…” → “War does not…”) para testar o backend com o prompt. Verifique se a IA corrige as palavras corretamente e retorna confiança alta.
+	2	Suporte a Sotaque: No prompt, você pode adicionar um campo explícito para sotaque no payload da API, como { accent: "Brazilian speaking English" }, se o backend suportar.
+	3	Melhorar Áudio no Celular: Como o problema ocorre em celular, adicione verificação de permissões de microfone no startRecording: const startRecording = useCallback(async () => {
+	4	  try {
+	5	    await navigator.mediaDevices.getUserMedia({ audio: true });
+	6	    const recognition = initializeRecognition();
+	7	    if (!recognition) return;
+	8	    recognitionRef.current = recognition;
+	9	    recognition.start();
+	10	    setRecordingTime(0);
+	11	    timeIntervalRef.current = setInterval(() => {
+	12	      setRecordingTime(prev => prev + 1);
+	13	    }, 1000);
+	14	    audioLevelIntervalRef.current = setInterval(() => {
+	15	      setAudioLevel(Math.random() * 100); // Substituir por nível real se possível
+	16	    }, 150);
+	17	  } catch (error) {
+	18	    console.error('Error starting recording:', error);
+	19	    toast({
+	20	      title: "Erro de Microfone",
+	21	      description: "Verifique as permissões do microfone no seu dispositivo.",
+	22	      variant: "destructive",
+	23	    });
+	24	  }
+	25	}, [initializeRecognition, toast]);
+	26	
+	27	Fallback para Outras APIs: Se a Web Speech API continuar falhando em celulares, considere integrar bibliotecas como Vosk.js ou usar a API da xAI (https://x.ai/api) para reconhecimento de fala mais robusto.
+Exemplo de Saída Esperada
+Para a entrada “Word Snow bones Explorer When Die and roupa understanding Lost the Silence of Souness”:
+	•	Saída da IA: {
+	•	  "correctedText": "War does not begin when bombs explode, but when dialogue ceases and the hope of understanding is lost in the silence of selfishness",
+	•	  "language": "English (US)",
+	•	  "languageCode": "en-US",
+	•	  "confidence": 0.92,
+	•	  "explanation": "Corrigido 'Word Snow' para 'War does', 'bones Explorer' para 'bombs explode', 'roupa' para 'hope', 'Souness' para 'selfishness' com base em similaridade fonética e contexto poético em inglês.",
+	•	  "suggestion": null
+	•	}
+	•	
+	•	Feedback no Frontend (via toast):
+	◦	Título: “🌐 Idioma: English (US)”
+	◦	Descrição: “Corrigido ‘Word Snow’ para ‘War does’, ‘bones Explorer’ para ‘bombs explode’, ‘roupa’ para ‘hope’, ‘Souness’ para ‘selfishness’ com base em fonética e contexto.”
+Se precisar de mais ajustes no prompt, ajuda com o TranslationDialog, ou testes adicionais com outros exemplos de erros, é só avisar! 😊
