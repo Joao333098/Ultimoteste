@@ -258,10 +258,13 @@ export default function RecordingControls({
             <Button
               onClick={onForceReanalysis}
               variant="outline"
-              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
-              disabled={isRecording}
+              className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20 disabled:opacity-50"
+              disabled={isRecording || !transcript.trim()}
             >
-              🔄 Reanalisar Idioma e Correção
+              <RotateCcw className="w-4 h-4 mr-2" />
+              {isRecording ? "Pare para Reanalisar" : 
+               !transcript.trim() ? "Sem Texto para Analisar" : 
+               "Reanalisar Idioma e Correção"}
             </Button>
           )}
         </div>

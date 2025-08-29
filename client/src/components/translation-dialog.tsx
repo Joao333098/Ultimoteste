@@ -52,14 +52,20 @@ export default function TranslationDialog({
     },
     onSuccess: (data) => {
       if (data.translatedText && data.translatedText.includes('[TRADUÇÃO INDISPONÍVEL]')) {
-        setWordTranslationResult("API não configurada - Configure GLM4_API_KEY");
+        setWordTranslationResult("⚠️ API não configurada. Configure Google Translate ou GLM4_API_KEY");
         toast({
-          title: "API não configurada",
-          description: "Configure a GLM4_API_KEY nas configurações",
+          title: "🔧 Configuração Necessária",
+          description: "Configure Google Translate API ou GLM4_API_KEY para tradução completa",
           variant: "destructive",
         });
       } else {
         setWordTranslationResult(data.translatedText);
+        if (data.confidence && data.confidence < 0.7) {
+          toast({
+            title: "⚠️ Tradução Básica",
+            description: "Usando dicionário básico. Configure API para melhor qualidade",
+          });
+        }
       }
     },
     onError: (error) => {

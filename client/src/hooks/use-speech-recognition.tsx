@@ -348,27 +348,17 @@ export function useSpeechRecognition() {
               enhanceText({ text: finalTextClean.slice(-300), targetLanguage: currentLanguage });
             }
 
-            // Auto-translation: usando texto limpo
+            // Auto-translation melhorada: usando texto limpo
             if (autoTranslationEnabled && finalTextClean.trim().length > 5) {
               const targetLang = translationTargetLanguage || "en-US";
               if (targetLang !== currentLanguage) {
-                // Verificar padrões conhecidos de corrupção para tratamento especial
-                const corruptionPatterns = [
-                  /Word not.*(?:Begin|Explorer|Die|Seas|Lost|Silence)/i,
-                  /(?:Bones|Can).*Explorer.*(?:pow|When|Die)/i,
-                  /roupa.*(?:van der|understanding)/i,
-                  /Lost.*Silence.*(?:Fitness|Souness|oficial)/i
-                ];
-                
-                const isKnownCorruptedPhrase = corruptionPatterns.some(pattern => pattern.test(finalTextClean));
-                
-                if (isKnownCorruptedPhrase) {
-                  console.log(`🎯 Detectada frase específica corrompida, traduzindo texto completo`);
-                  translateText({ text: finalTextClean, targetLanguage: targetLang });
-                } else {
-                  console.log(`🔄 Auto-traduzindo: "${finalTextClean.slice(-200)}" para ${targetLang}`);
-                  translateText({ text: finalTextClean.slice(-200), targetLanguage: targetLang });
-                }
+                // Aguardar um pouco antes de traduzir para evitar múltiplas traduções
+                setTimeout(() => {
+                  const textToTranslate = finalTextClean.length > 200 ? 
+                    finalTextClean.slice(-200) : finalTextClean;
+                  console.log(`🔄 Auto-traduzindo: "${textToTranslate}" para ${targetLang}`);
+                  translateText({ text: textToTranslate, targetLanguage: targetLang });
+                }, 1000);
               }
             }
           }
@@ -478,7 +468,17 @@ export function useSpeechRecognition() {
     setDetectedLanguage("Português (BR)");
     setConfidence(0.98);
     setDetectedLanguages(["pt-BR"]);
-  }, []);
+    
+    // Limpar também as referências internas
+    lastProcessedTextRef.current = "";
+    recentDetectionsRef.current = [];
+    languageDetectionCountRef.current = {};
+    
+    toast({
+      title: "✅ Transcrição Limpa",
+      description: "Todo o conteúdo foi removido com sucesso",
+    });
+  }, [toast]);
 
   const toggleAutoTranslation = useCallback(() => {
     const newState = !autoTranslationEnabled;
@@ -600,13 +600,20 @@ export function useSpeechRecognition() {
   }, [enhancedMode, toast]);
 
   const forceReanalysis = useCallback(() => {
-    if (!transcript || isRecording) return;
+    if (!transcript || isRecording) {
+      toast({
+        title: "Não é possível reanalisar",
+        description: isRecording ? "Pare a gravação primeiro" : "Não há texto para analisar",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const cleanText = transcript.replace(/\[INTERIM\].*$/, '').trim();
     if (cleanText.length < 10) {
       toast({
         title: "Texto Insuficiente",
-        description: "Precisa de mais texto para reanalisar",
+        description: "Precisa de mais texto para reanalisar (mínimo 10 caracteres)",
         variant: "destructive",
       });
       return;
@@ -617,13 +624,26 @@ export function useSpeechRecognition() {
       description: "Detectando idioma e aplicando correções",
     });
 
-    // Forçar nova análise
+    // Resetar detecções anteriores para nova análise
+    recentDetectionsRef.current = [];
+    lastDetectionTimeRef.current = 0;
+    lastProcessedTextRef.current = "";
+
+    // Forçar nova análise com o texto completo
     detectLanguage({ text: cleanText, alternatives: [] });
     
+    // Se modo avançado estiver ativo, melhorar o texto
     if (enhancedMode) {
       enhanceText({ text: cleanText, targetLanguage: currentLanguage });
     }
-  }, [transcript, isRecording, currentLanguage, enhancedMode, detectLanguage, enhanceText, toast]);
+
+    // Se tradução automática estiver ativa, traduzir novamente
+    if (autoTranslationEnabled && translationTargetLanguage !== currentLanguage) {
+      setTimeout(() => {
+        translateText({ text: cleanText, targetLanguage: translationTargetLanguage });
+      }, 2000);
+    }
+  }, [transcript, isRecording, currentLanguage, enhancedMode, detectLanguage, enhanceText, toast, autoTranslationEnabled, translationTargetLanguage, translateText]);
 
   const toggleLanguage = useCallback((langCode: string) => {
     const newEnabledLanguages = {

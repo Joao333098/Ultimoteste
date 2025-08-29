@@ -5,7 +5,10 @@ function mapLanguageCode(langCode: string): string {
   const langMap: Record<string, string> = {
     'pt-BR': 'pt',
     'en-US': 'en', 
-    'es-ES': 'es'
+    'es-ES': 'es',
+    'pt': 'pt',
+    'en': 'en',
+    'es': 'es'
   };
   return langMap[langCode] || langCode.split('-')[0];
 }
@@ -22,12 +25,21 @@ function basicTranslation(text: string, targetLanguage: string): {
   const basicDict: Record<string, Record<string, string>> = {
     "pt-BR": {
       "hello": "olá",
-      "good": "bom",
+      "good": "bom", 
       "bad": "ruim",
       "yes": "sim",
       "no": "não",
       "thank you": "obrigado",
-      "please": "por favor"
+      "please": "por favor",
+      "hola": "olá",
+      "bueno": "bom",
+      "malo": "ruim",
+      "sí": "sim",
+      "gracias": "obrigado",
+      "cómo": "como",
+      "dónde": "onde",
+      "cuándo": "quando",
+      "por qué": "por que"
     },
     "en-US": {
       "olá": "hello",
@@ -36,7 +48,16 @@ function basicTranslation(text: string, targetLanguage: string): {
       "sim": "yes",
       "não": "no",
       "obrigado": "thank you",
-      "por favor": "please"
+      "por favor": "please",
+      "como": "how",
+      "onde": "where", 
+      "quando": "when",
+      "por que": "why",
+      "hola": "hello",
+      "bueno": "good",
+      "malo": "bad",
+      "sí": "yes",
+      "gracias": "thank you"
     },
     "es-ES": {
       "olá": "hola",
@@ -45,7 +66,17 @@ function basicTranslation(text: string, targetLanguage: string): {
       "sim": "sí",
       "não": "no",
       "obrigado": "gracias",
-      "por favor": "por favor"
+      "por favor": "por favor",
+      "hello": "hola",
+      "good": "bueno",
+      "bad": "malo",
+      "yes": "sí",
+      "thank you": "gracias",
+      "please": "por favor",
+      "como": "cómo",
+      "onde": "dónde",
+      "quando": "cuándo",
+      "por que": "por qué"
     }
   };
 
@@ -59,11 +90,20 @@ function basicTranslation(text: string, targetLanguage: string): {
     });
   }
 
-  return {
-    translatedText: translatedText === text ? `[Tradução básica] ${text}` : translatedText,
-    confidence: 0.3,
-    detectedLanguage: "Auto-detectado"
-  };
+  // Se houve mudanças, retornar tradução; se não, indicar que precisa de API
+  if (translatedText !== text) {
+    return {
+      translatedText: translatedText,
+      confidence: 0.6,
+      detectedLanguage: "Traduzido com dicionário básico"
+    };
+  } else {
+    return {
+      translatedText: `[TRADUÇÃO INDISPONÍVEL] Configure Google Translate API ou GLM4_API_KEY para traduzir: "${text}"`,
+      confidence: 0.1,
+      detectedLanguage: "Não foi possível traduzir"
+    };
+  }
 }
 
 export async function translateText(
