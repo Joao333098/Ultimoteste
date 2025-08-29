@@ -37,9 +37,9 @@ export default function TranslationDialog({
   const { toast } = useToast();
 
   const languages = [
-    { code: "pt-BR", name: "Português (BR)", flag: "🇧🇷" },
-    { code: "en-US", name: "English (US)", flag: "🇺🇸" },
-    { code: "es-ES", name: "Español (ES)", flag: "🇪🇸" }
+    { code: "pt-BR", name: "Português (BR)", flag: "" },
+    { code: "en-US", name: "English (US)", flag: "" },
+    { code: "es-ES", name: "Español (ES)", flag: "" }
   ];
 
   const { mutate: translateWord, isPending: isTranslatingWord } = useMutation({

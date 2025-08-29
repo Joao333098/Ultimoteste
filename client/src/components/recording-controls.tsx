@@ -204,12 +204,18 @@ export default function RecordingControls({
 
         {/* Language Filter */}
         <div className="glass-card rounded-3xl shadow-large border-white/20 p-6 mt-6 hover-lift">
-          <h3 className="text-lg font-bold text-white mb-4 drop-shadow-lg">🎯 Filtro de Idiomas</h3>
+          <div className="flex items-center space-x-2 mb-4">
+            <Target className="w-5 h-5 text-white" />
+            <h3 className="text-lg font-bold text-white drop-shadow-lg">Filtro de Idiomas</h3>
+          </div>
           <p className="text-white/80 text-sm mb-4">Escolha quais idiomas devem ser detectados automaticamente:</p>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-white font-medium">🇧🇷 Português (BR)</span>
+              <div className="flex items-center space-x-2">
+                <Globe2 className="w-4 h-4 text-white" />
+                <span className="text-white font-medium">Português (BR)</span>
+              </div>
               <Switch
                 checked={enabledLanguages['pt-BR']}
                 onCheckedChange={() => onToggleLanguage?.('pt-BR')}
@@ -217,7 +223,10 @@ export default function RecordingControls({
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white font-medium">🇺🇸 English (US)</span>
+              <div className="flex items-center space-x-2">
+                <Globe2 className="w-4 h-4 text-white" />
+                <span className="text-white font-medium">English (US)</span>
+              </div>
               <Switch
                 checked={enabledLanguages['en-US']}
                 onCheckedChange={() => onToggleLanguage?.('en-US')}
@@ -225,7 +234,10 @@ export default function RecordingControls({
               />
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white font-medium">🇪🇸 Español (ES)</span>
+              <div className="flex items-center space-x-2">
+                <Globe2 className="w-4 h-4 text-white" />
+                <span className="text-white font-medium">Español (ES)</span>
+              </div>
               <Switch
                 checked={enabledLanguages['es-ES']}
                 onCheckedChange={() => onToggleLanguage?.('es-ES')}
@@ -236,7 +248,7 @@ export default function RecordingControls({
 
           <div className="mt-4 p-3 bg-white/10 rounded-xl">
             <p className="text-white/70 text-xs">
-              💡 <strong>Dica:</strong> Desative idiomas que você não usa para melhorar a precisão da detecção.
+              <strong>Dica:</strong> Desative idiomas que você não usa para melhorar a precisão da detecção.
               {isRecording && " (Pare a gravação para alterar)"}
             </p>
           </div>

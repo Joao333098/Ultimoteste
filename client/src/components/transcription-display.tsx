@@ -398,7 +398,7 @@
                <div className="text-center py-4">
                  <div className="inline-block bg-yellow-100/90 border border-yellow-300 rounded-lg px-4 py-2">
                    <span className="text-yellow-800 text-sm">
-                     💡 Ative a tradução automática para ver traduções
+                     Ative a tradução automática para ver traduções
                    </span>
                  </div>
                </div>

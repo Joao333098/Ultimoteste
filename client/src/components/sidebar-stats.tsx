@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSentimentAnalysis } from "@/hooks/use-ai-analysis";
+import SummaryModal from "./summary-modal";
 
 interface SidebarStatsProps {
   recordingTime: number;
@@ -26,7 +28,16 @@ export default function SidebarStats({
     'es-ES': true
   });
   const [detectionMode, setDetectionMode] = useState('automatic');
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
+  const [summaryData, setSummaryData] = useState<string>("");
+  const [sentimentData, setSentimentData] = useState<{
+    rating: number;
+    confidence: number;
+    sentiment: string;
+  } | undefined>(undefined);
   const { toast } = useToast();
+
+  const analyzeSentimentMutation = useSentimentAnalysis();
 
   const { mutate: generateSummary, isPending: isGeneratingSummary } = useMutation({
     mutationFn: async () => {
@@ -34,12 +45,11 @@ export default function SidebarStats({
       return response.json();
     },
     onSuccess: (data) => {
+      setSummaryData(data.summary);
       toast({
         title: "Resumo Gerado",
         description: "O resumo foi gerado com sucesso",
       });
-      // Here you could open a modal or redirect to show the summary
-      console.log('Summary:', data.summary);
     },
     onError: () => {
       toast({
@@ -223,7 +233,12 @@ export default function SidebarStats({
         <div className="space-y-3">
           <Button
             data-testid="button-generate-summary"
-            onClick={() => generateSummary()}
+            onClick={() => {
+              setIsSummaryModalOpen(true);
+              if (!summaryData) {
+                generateSummary();
+              }
+            }}
             disabled={isGeneratingSummary || !transcript}
             className="w-full justify-between bg-white/10 hover:bg-white/20 text-white border border-white/30 hover:scale-105 transition-all duration-300"
             variant="outline"
@@ -265,6 +280,35 @@ export default function SidebarStats({
           </Button>
         </div>
       </div>
+
+      <SummaryModal
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        summary={summaryData}
+        sentimentData={sentimentData}
+        isGeneratingSummary={isGeneratingSummary}
+        isAnalyzingSentiment={analyzeSentimentMutation.isPending}
+        transcript={transcript}
+        onGenerateSummary={() => generateSummary()}
+        onAnalyzeSentiment={() => {
+          analyzeSentimentMutation.mutate(transcript, {
+            onSuccess: (data) => {
+              setSentimentData(data);
+              toast({
+                title: "Análise Concluída",
+                description: "Análise de sentimento realizada com sucesso",
+              });
+            },
+            onError: () => {
+              toast({
+                title: "Erro",
+                description: "Falha na análise de sentimento",
+                variant: "destructive",
+              });
+            }
+          });
+        }}
+      />
     </div>
   );
 }

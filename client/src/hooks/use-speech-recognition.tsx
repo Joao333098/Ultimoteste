@@ -488,7 +488,7 @@ export function useSpeechRecognition() {
     languageDetectionCountRef.current = {};
     
     toast({
-      title: "✅ Transcrição Limpa",
+      title: "Transcrição Limpa",
       description: "Todo o conteúdo foi removido com sucesso",
     });
   }, [toast]);
@@ -529,7 +529,7 @@ export function useSpeechRecognition() {
     };
 
     toast({
-      title: newState ? "✅ Tradução Ativada" : "❌ Tradução Desativada",
+      title: newState ? "Tradução Ativada" : "Tradução Desativada",
       description: newState
         ? `Traduzindo automaticamente para ${getLanguageName(newState ? (currentLanguage === "pt-BR" ? "en-US" : currentLanguage === "en-US" ? "pt-BR" : "pt-BR") : "")}`
         : "Tradução automática desativada",
@@ -633,7 +633,7 @@ export function useSpeechRecognition() {
     }
 
     toast({
-      title: "🔄 Reanalisando...",
+      title: "Reanalisando...",
       description: "Detectando idioma e aplicando correções",
     });
 
