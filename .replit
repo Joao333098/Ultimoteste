@@ -36,6 +36,7 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_openai==1.0.0", "javascript_gemini==1.0.0"]
+expertMode = true
 
 [[ports]]
 localPort = 5000
