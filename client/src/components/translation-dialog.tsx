@@ -141,17 +141,28 @@ export default function TranslationDialog({
       return;
     }
 
-    // Sempre usar um idioma válido
-    const targetLang = translationTargetLanguage || "en-US";
-    
-    // Se o idioma de destino for igual ao idioma atual, exibir texto original
-    const currentLang = localStorage.getItem('currentLanguage') || 'pt-BR';
-    if (targetLang === currentLang) {
-      setFullTranscriptResult(cleanText);
+    // Verificar se há idioma de destino selecionado
+    if (!translationTargetLanguage || translationTargetLanguage.trim() === '') {
+      toast({
+        title: "Idioma não selecionado",
+        description: "Selecione um idioma de destino nas configurações",
+        variant: "destructive",
+      });
       return;
     }
 
-    translateFullText({ text: cleanText, targetLanguage: targetLang });
+    // Se o idioma de destino for igual ao idioma atual, exibir texto original
+    const currentLang = localStorage.getItem('currentLanguage') || 'pt-BR';
+    if (translationTargetLanguage === currentLang) {
+      setFullTranscriptResult(cleanText);
+      toast({
+        title: "Mesmo idioma",
+        description: "O idioma de destino é o mesmo do texto atual",
+      });
+      return;
+    }
+
+    translateFullText({ text: cleanText, targetLanguage: translationTargetLanguage });
   };
 
   const getLanguageName = (code: string) => {
@@ -192,9 +203,9 @@ export default function TranslationDialog({
             {autoTranslationEnabled && (
               <div className="space-y-3">
                 <label className="text-sm font-medium">Traduzir para:</label>
-                <Select value={translationTargetLanguage || "pt-BR"} onValueChange={onSetTranslationTarget}>
+                <Select value={translationTargetLanguage || ""} onValueChange={onSetTranslationTarget}>
                   <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="Selecione um idioma" />
+                    <SelectValue placeholder="Selecione um idioma de destino" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-900 border-white/20">
                     {languages.map(lang => (
@@ -299,13 +310,21 @@ export default function TranslationDialog({
                 <span className="text-sm text-white/70">Traduzir para:</span>
                 {(() => {
                   const currentLang = localStorage.getItem('currentLanguage') || 'pt-BR';
-                  const effectiveTargetLang = translationTargetLanguage || "pt-BR";
-                  const isSameLanguage = effectiveTargetLang === currentLang;
+                  
+                  if (!translationTargetLanguage || translationTargetLanguage.trim() === '') {
+                    return (
+                      <span className="text-sm text-red-400 bg-red-400/20 px-2 py-1 rounded-full">
+                        Nenhum idioma selecionado
+                      </span>
+                    );
+                  }
+
+                  const isSameLanguage = translationTargetLanguage === currentLang;
 
                   return (
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-medium">
-                        {getLanguageFlag(effectiveTargetLang)} {getLanguageName(effectiveTargetLang)}
+                        {getLanguageFlag(translationTargetLanguage)} {getLanguageName(translationTargetLanguage)}
                       </span>
                       {isSameLanguage && (
                         <span className="text-xs text-blue-400 bg-blue-400/20 px-2 py-1 rounded-full">

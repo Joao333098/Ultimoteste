@@ -33,8 +33,8 @@ export function useSpeechRecognition() {
   });
   const [autoTranslationEnabled, setAutoTranslationEnabled] = useState(false);
   const [translationTargetLanguage, setTranslationTargetLanguage] = useState(() => {
-    // Initialize with a default value that ensures it's never empty
-    return localStorage.getItem('translationTargetLanguage') || "pt-BR";
+    // Não definir valor padrão para forçar seleção manual
+    return localStorage.getItem('translationTargetLanguage') || "";
   });
   const [translatedTranscript, setTranslatedTranscript] = useState("");
 
