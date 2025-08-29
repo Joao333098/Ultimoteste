@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSentimentAnalysis } from "@/hooks/use-ai-analysis";
 import SummaryModal from "./summary-modal";
 import ExportFormatModal from "./export-format-modal";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface SidebarStatsProps {
   recordingTime: number;
@@ -80,75 +82,432 @@ export default function SidebarStats({
     setIsExportModalOpen(true);
   };
 
-  const handleExportWithFormat = (format: string) => {
+  const handleExportWithFormat = async (format: string) => {
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `transcricao-${timestamp}`;
     
+    // Gerar resumo se não existir
+    let currentSummary = summaryData;
+    if (!currentSummary && transcript) {
+      toast({
+        title: "Gerando resumo",
+        description: "Criando resumo para exportação...",
+      });
+      
+      try {
+        const summaryResponse = await fetch('/api/ai/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: transcript })
+        });
+        
+        if (summaryResponse.ok) {
+          const data = await summaryResponse.json();
+          currentSummary = data.summary;
+          setSummaryData(data.summary);
+        }
+      } catch (error) {
+        console.error('Erro ao gerar resumo:', error);
+      }
+    }
+    
     switch (format) {
       case 'txt':
-        exportAsText(transcript, filename);
+        exportAsText(transcript, filename, currentSummary);
         break;
       case 'html':
-        exportAsHTML(transcript, filename);
+        exportAsHTML(transcript, filename, currentSummary);
         break;
       case 'doc':
-        exportAsWord(transcript, filename);
+        exportAsWord(transcript, filename, currentSummary);
         break;
       case 'pdf':
-        exportAsPDF(transcript, filename);
+        await exportAsPDF(transcript, filename, currentSummary);
         break;
       default:
-        exportAsText(transcript, filename);
+        exportAsText(transcript, filename, currentSummary);
     }
   };
 
-  const exportAsText = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const exportAsText = (content: string, filename: string, summary?: string) => {
+    let fullContent = '';
+    
+    if (summary) {
+      fullContent += `=== RESUMO ===\n\n${summary}\n\n=== TRANSCRIÇÃO COMPLETA ===\n\n`;
+    }
+    fullContent += content;
+    
+    const blob = new Blob([fullContent], { type: 'text/plain;charset=utf-8' });
     downloadFile(blob, `${filename}.txt`);
   };
 
-  const exportAsHTML = (content: string, filename: string) => {
+  const exportAsHTML = (content: string, filename: string, summary?: string) => {
+    const currentDate = new Date().toLocaleString('pt-BR');
+    const wordCount = content.split(' ').length;
+    const readingTime = Math.ceil(wordCount / 200); // ~200 palavras por minuto
+    
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="pt-BR">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Transcrição - ${filename}</title>
+        <title>VoiceScribe AI - Transcrição</title>
         <style>
-          body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
-          .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-          .content { white-space: pre-wrap; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          
+          body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.7;
+          }
+          
+          .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem 2rem 2rem;
+            text-align: center;
+            position: relative;
+          }
+          
+          .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1" fill="%23ffffff" opacity="0.1"/><circle cx="80" cy="80" r="1.5" fill="%23ffffff" opacity="0.1"/><circle cx="60" cy="30" r="0.5" fill="%23ffffff" opacity="0.2"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+          }
+          
+          .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+          }
+          
+          .header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 1.5rem;
+            position: relative;
+            z-index: 1;
+          }
+          
+          .stats {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1.5rem;
+            position: relative;
+            z-index: 1;
+          }
+          
+          .stat {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+          }
+          
+          .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: block;
+          }
+          
+          .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+          }
+          
+          .content {
+            padding: 3rem 2rem;
+          }
+          
+          .summary-section {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 3rem;
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .summary-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            background-image: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.2) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 50%);
+          }
+          
+          .summary-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
+          }
+          
+          .summary-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            position: relative;
+            z-index: 1;
+          }
+          
+          .transcript-section h2 {
+            color: #333;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 3px solid #667eea;
+          }
+          
+          .transcript-text {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            line-height: 1.8;
+            color: #333;
+            white-space: pre-wrap;
+            border-left: 4px solid #667eea;
+          }
+          
+          .footer {
+            background: #f8f9fa;
+            padding: 2rem;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e9ecef;
+          }
+          
+          .footer p {
+            margin: 0.5rem 0;
+          }
+          
+          .brand {
+            color: #667eea;
+            font-weight: 600;
+          }
+          
+          @media (max-width: 768px) {
+            body { padding: 1rem; }
+            .header { padding: 2rem 1rem; }
+            .header h1 { font-size: 2rem; }
+            .stats { flex-direction: column; gap: 1rem; }
+            .content { padding: 2rem 1rem; }
+          }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h1>Transcrição de Áudio</h1>
-          <p>Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        <div class="container">
+          <header class="header">
+            <h1>🎤 VoiceScribe AI</h1>
+            <p class="subtitle">Transcrição Inteligente de Áudio</p>
+            <div class="stats">
+              <div class="stat">
+                <span class="stat-number">${wordCount}</span>
+                <span class="stat-label">Palavras</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">${readingTime}min</span>
+                <span class="stat-label">Leitura</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">${currentDate.split(' ')[0]}</span>
+                <span class="stat-label">Data</span>
+              </div>
+            </div>
+          </header>
+          
+          <main class="content">
+            ${summary ? `
+              <section class="summary-section">
+                <h2>📋 Resumo Executivo</h2>
+                <div class="summary-text">${summary}</div>
+              </section>
+            ` : ''}
+            
+            <section class="transcript-section">
+              <h2>📝 Transcrição Completa</h2>
+              <div class="transcript-text">${content}</div>
+            </section>
+          </main>
+          
+          <footer class="footer">
+            <p>Gerado em: <strong>${currentDate}</strong></p>
+            <p>Powered by <span class="brand">VoiceScribe AI</span> - Transcrição Inteligente</p>
+          </footer>
         </div>
-        <div class="content">${content}</div>
       </body>
       </html>
     `;
+    
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
     downloadFile(blob, `${filename}.html`);
   };
 
-  const exportAsWord = (content: string, filename: string) => {
-    // Simplified Word format (RTF)
-    const rtfContent = `{\rtf1\ansi\deff0 {\fonttbl {\f0 Times New Roman;}} \f0\fs24 ${content.replace(/\n/g, '\\par ')} }`;
+  const exportAsWord = (content: string, filename: string, summary?: string) => {
+    let fullContent = '';
+    
+    if (summary) {
+      fullContent += `RESUMO\n\n${summary}\n\n---\n\nTRANSCRIÇÃO COMPLETA\n\n`;
+    }
+    fullContent += content;
+    
+    const rtfContent = `{\rtf1\ansi\deff0 {\fonttbl {\f0 Times New Roman;}} \f0\fs24 ${fullContent.replace(/\n/g, '\\par ')} }`;
     const blob = new Blob([rtfContent], { type: 'application/rtf' });
     downloadFile(blob, `${filename}.rtf`);
   };
 
-  const exportAsPDF = (content: string, filename: string) => {
-    // For now, export as text with PDF extension
-    // In a real implementation, you'd use a PDF library
-    toast({
-      title: "Recurso em Desenvolvimento",
-      description: "Export PDF será implementado em breve. Exportando como texto.",
-    });
-    exportAsText(content, filename);
+  const exportAsPDF = async (content: string, filename: string, summary?: string) => {
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - 2 * margin;
+      let yPosition = margin;
+      
+      // Função para adicionar nova página se necessário
+      const checkPageBreak = (neededHeight: number) => {
+        if (yPosition + neededHeight > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+      };
+      
+      // Cabeçalho com gradiente simulado
+      pdf.setFillColor(102, 126, 234); // #667eea
+      pdf.rect(0, 0, pageWidth, 60, 'F');
+      
+      // Título
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('🎤 VoiceScribe AI', pageWidth / 2, 25, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Transcrição Inteligente de Áudio', pageWidth / 2, 35, { align: 'center' });
+      
+      // Informações da sessão
+      const currentDate = new Date().toLocaleString('pt-BR');
+      const wordCount = content.split(' ').length;
+      const readingTime = Math.ceil(wordCount / 200);
+      
+      pdf.setFontSize(10);
+      pdf.text(`Gerado em: ${currentDate}`, pageWidth / 2, 45, { align: 'center' });
+      pdf.text(`${wordCount} palavras • ${readingTime}min de leitura`, pageWidth / 2, 52, { align: 'center' });
+      
+      yPosition = 70;
+      pdf.setTextColor(0, 0, 0);
+      
+      // Resumo (se disponível)
+      if (summary) {
+        checkPageBreak(40);
+        
+        // Caixa do resumo
+        pdf.setFillColor(240, 147, 251); // #f093fb
+        pdf.roundedRect(margin, yPosition, contentWidth, 30, 3, 3, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('📋 Resumo Executivo', margin + 5, yPosition + 10);
+        
+        yPosition += 20;
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        
+        const summaryLines = pdf.splitTextToSize(summary, contentWidth - 10);
+        pdf.text(summaryLines, margin + 5, yPosition);
+        yPosition += summaryLines.length * 5 + 20;
+        
+        pdf.setTextColor(0, 0, 0);
+      }
+      
+      // Título da transcrição
+      checkPageBreak(20);
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(102, 126, 234);
+      pdf.text('📝 Transcrição Completa', margin, yPosition);
+      yPosition += 15;
+      
+      // Linha separadora
+      pdf.setDrawColor(102, 126, 234);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
+      
+      // Conteúdo da transcrição
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'normal');
+      
+      const textLines = pdf.splitTextToSize(content, contentWidth);
+      
+      for (let i = 0; i < textLines.length; i++) {
+        checkPageBreak(6);
+        pdf.text(textLines[i], margin, yPosition);
+        yPosition += 6;
+      }
+      
+      // Rodapé em todas as páginas
+      const totalPages = pdf.internal.pages.length - 1;
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(128, 128, 128);
+        pdf.text(
+          `Powered by VoiceScribe AI - Página ${i} de ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+      
+      // Salvar PDF
+      pdf.save(`${filename}.pdf`);
+      
+      toast({
+        title: "Sucesso",
+        description: `PDF ${filename}.pdf criado com sucesso!`,
+      });
+      
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao gerar PDF. Tentando formato alternativo...",
+        variant: "destructive",
+      });
+      exportAsText(content, filename, summary);
+    }
   };
 
   const downloadFile = (blob: Blob, filename: string) => {
@@ -337,7 +696,7 @@ export default function SidebarStats({
           >
             <div className="flex items-center space-x-3">
               <Download className="w-4 h-4 text-green-300" />
-              <span>Exportar Texto</span>
+              <span>Exportar Conteúdo</span>
             </div>
           </Button>
 
