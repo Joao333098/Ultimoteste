@@ -276,57 +276,80 @@ Mantenha os pontos principais e seja objetivo.`;
   }
 }
 
-// Dummy function for text-correction.js, as the actual implementation is not provided.
-// In a real scenario, this would be imported from a separate file.
-function correctTranscription(text: string): {
+// Enhanced function for text-correction with enabled languages filter
+function correctTranscription(text: string, enabledLanguages?: Record<string, boolean>): {
   correctedText: string;
   corrections: { original: string; corrected: string; confidence: number }[];
   detectedLanguage: string;
   confidence: number;
 } {
-  // This is a placeholder for the actual library implementation.
-  // It should perform text correction and language detection.
-  // For demonstration, it performs a very basic correction and assumes Portuguese.
-
+  const enabled = enabledLanguages || { 'pt-BR': true, 'en-US': true, 'es-ES': true };
+  
   let correctedText = text;
   const corrections: { original: string; corrected: string; confidence: number }[] = [];
   let detectedLanguage = 'pt-BR'; // Default to Portuguese
   let confidence = 0.5;
 
-  // Example of a simple correction (replace "guerra" with "guerra" and add confidence)
-  const warRegex = /\bwar\b/gi;
-  if (warRegex.test(correctedText)) {
-    correctedText = correctedText.replace(warRegex, 'guerra');
-    corrections.push({ original: 'war', corrected: 'guerra', confidence: 0.8 });
-    detectedLanguage = 'pt-BR'; // If 'war' is replaced by 'guerra', it's likely Portuguese
-    confidence = 0.8;
-  }
+  // Language indicators for detection - only check enabled languages
+  const languageIndicators = {
+    'pt-BR': {
+      indicators: ['não', 'que', 'para', 'com', 'uma', 'quando', 'está', 'tem', 'ser', 'muito', 'como', 'mas', 'também', 'já'],
+      corrections: [
+        { from: /\bwar\b/gi, to: 'guerra', confidence: 0.8 }
+      ]
+    },
+    'en-US': {
+      indicators: ['the', 'and', 'is', 'are', 'when', 'bombs', 'this', 'that', 'have', 'will', 'would', 'could', 'should'],
+      corrections: [
+        { from: /\bexplode\b/gi, to: 'explode', confidence: 0.9 }
+      ]
+    },
+    'es-ES': {
+      indicators: ['que', 'de', 'el', 'la', 'en', 'es', 'se', 'con', 'para', 'como', 'pero', 'muy', 'está', 'son'],
+      corrections: [
+        { from: /\bbomba\b/gi, to: 'bomba', confidence: 0.8 }
+      ]
+    }
+  };
 
-  // Example of another simple correction for English
-  const explodeRegex = /\bexplode\b/gi;
-  if (explodeRegex.test(correctedText)) {
-    corrections.push({ original: 'explode', corrected: 'explode', confidence: 0.9 });
-    detectedLanguage = 'en-US'; // If 'explode' is present, it's likely English
-    confidence = 0.9;
-  }
-  
-  // If no specific corrections were made, try to guess language based on common words
-  if (corrections.length === 0) {
-      const ptIndicators = ['não', 'que', 'para', 'com', 'uma', 'quando'];
-      const enIndicators = ['the', 'and', 'is', 'are', 'when', 'bombs'];
-      const lowerText = text.toLowerCase();
-      const ptMatches = ptIndicators.filter(word => lowerText.includes(word)).length;
-      const enMatches = enIndicators.filter(word => lowerText.includes(word)).length;
+  const lowerText = text.toLowerCase();
+  const scores: Record<string, number> = {};
 
-      if (ptMatches > enMatches && ptMatches > 2) {
-          detectedLanguage = 'pt-BR';
-          confidence = 0.7;
-      } else if (enMatches > ptMatches && enMatches > 1) {
-          detectedLanguage = 'en-US';
-          confidence = 0.7;
+  // Calculate scores only for enabled languages
+  Object.keys(languageIndicators).forEach(langCode => {
+    if (!enabled[langCode]) return; // Skip disabled languages
+    
+    const config = languageIndicators[langCode as keyof typeof languageIndicators];
+    const matches = config.indicators.filter(word => lowerText.includes(word)).length;
+    scores[langCode] = matches;
+    
+    // Apply corrections for this language
+    config.corrections.forEach(correction => {
+      if (correction.from.test(correctedText)) {
+        correctedText = correctedText.replace(correction.from, correction.to);
+        corrections.push({ 
+          original: correction.from.source, 
+          corrected: correction.to, 
+          confidence: correction.confidence 
+        });
       }
-  }
+    });
+  });
 
+  // Find the language with highest score among enabled languages
+  const enabledLanguagesList = Object.keys(scores);
+  if (enabledLanguagesList.length > 0) {
+    detectedLanguage = enabledLanguagesList.reduce((a, b) => scores[a] > scores[b] ? a : b);
+    const bestScore = scores[detectedLanguage];
+    
+    if (bestScore > 0) {
+      confidence = Math.min(0.9, 0.5 + (bestScore * 0.1));
+    }
+  } else {
+    // If no languages enabled, fall back to first available enabled language
+    const firstEnabled = Object.keys(enabled).find(lang => enabled[lang]);
+    detectedLanguage = firstEnabled || 'pt-BR';
+  }
 
   return {
     correctedText: correctedText.replace(/\s+/g, ' ').trim(), // Normalize whitespace
@@ -436,9 +459,21 @@ function fallbackLanguageDetection(
 export async function detectLanguageFromText(text: string, alternatives: any[] = [], context: any = {}): Promise<any> {
   try {
     console.log(`🎯 Analisando: "${text.substring(0, 100)}..."`);
+    
+    // Verificar idiomas habilitados do contexto
+    const enabledLanguages = context?.enabledLanguages || { 'pt-BR': true, 'en-US': true, 'es-ES': true };
+    const activeLanguages = Object.keys(enabledLanguages).filter(lang => enabledLanguages[lang]);
+    
+    console.log(`🎚️ Idiomas habilitados para detecção:`, activeLanguages);
+    
+    // Se não há idiomas ativos, usar fallback
+    if (activeLanguages.length === 0) {
+      console.log(`⚠️ Nenhum idioma ativo, usando fallback`);
+      return fallbackLanguageDetection(text, context);
+    }
 
     // Usar correção baseada em bibliotecas primeiro
-    const correctionResult = correctTranscription(text);
+    const correctionResult = correctTranscription(text, enabledLanguages);
 
     console.log(`🔧 Texto corrigido: "${correctionResult.correctedText.substring(0, 100)}..."`);
 
@@ -449,9 +484,23 @@ export async function detectLanguageFromText(text: string, alternatives: any[] =
       });
     }
 
+    // Verificar se o idioma detectado está habilitado
+    const detectedLang = correctionResult.detectedLanguage;
+    if (!enabledLanguages[detectedLang]) {
+      console.log(`🚫 Idioma detectado ${detectedLang} não está habilitado, usando fallback`);
+      return fallbackLanguageDetection(text, context);
+    }
+
+    // Mapear nome do idioma baseado no código
+    const languageNames: Record<string, string> = {
+      'pt-BR': "Português (BR)",
+      'en-US': "English (US)", 
+      'es-ES': "Español (ES)"
+    };
+
     return {
-      language: correctionResult.detectedLanguage === 'en-US' ? "English (US)" : "Português (BR)",
-      languageCode: correctionResult.detectedLanguage,
+      language: languageNames[detectedLang] || "Português (BR)",
+      languageCode: detectedLang,
       confidence: correctionResult.confidence,
       explanation: correctionResult.corrections.length > 0 
         ? `Corrigido automaticamente (${correctionResult.corrections.length} correções)` 
