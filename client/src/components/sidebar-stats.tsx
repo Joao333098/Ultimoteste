@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSentimentAnalysis } from "@/hooks/use-ai-analysis";
 import SummaryModal from "./summary-modal";
+import ExportFormatModal from "./export-format-modal";
 
 interface SidebarStatsProps {
   recordingTime: number;
@@ -35,6 +36,7 @@ export default function SidebarStats({
     confidence: number;
     sentiment: string;
   } | undefined>(undefined);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const { toast } = useToast();
 
   const analyzeSentimentMutation = useSentimentAnalysis();
@@ -75,12 +77,85 @@ export default function SidebarStats({
       });
       return;
     }
+    setIsExportModalOpen(true);
+  };
 
-    const blob = new Blob([transcript], { type: 'text/plain' });
+  const handleExportWithFormat = (format: string) => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `transcricao-${timestamp}`;
+    
+    switch (format) {
+      case 'txt':
+        exportAsText(transcript, filename);
+        break;
+      case 'html':
+        exportAsHTML(transcript, filename);
+        break;
+      case 'doc':
+        exportAsWord(transcript, filename);
+        break;
+      case 'pdf':
+        exportAsPDF(transcript, filename);
+        break;
+      default:
+        exportAsText(transcript, filename);
+    }
+  };
+
+  const exportAsText = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    downloadFile(blob, `${filename}.txt`);
+  };
+
+  const exportAsHTML = (content: string, filename: string) => {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Transcrição - ${filename}</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
+          .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+          .content { white-space: pre-wrap; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Transcrição de Áudio</h1>
+          <p>Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+        <div class="content">${content}</div>
+      </body>
+      </html>
+    `;
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    downloadFile(blob, `${filename}.html`);
+  };
+
+  const exportAsWord = (content: string, filename: string) => {
+    // Simplified Word format (RTF)
+    const rtfContent = `{\rtf1\ansi\deff0 {\fonttbl {\f0 Times New Roman;}} \f0\fs24 ${content.replace(/\n/g, '\\par ')} }`;
+    const blob = new Blob([rtfContent], { type: 'application/rtf' });
+    downloadFile(blob, `${filename}.rtf`);
+  };
+
+  const exportAsPDF = (content: string, filename: string) => {
+    // For now, export as text with PDF extension
+    // In a real implementation, you'd use a PDF library
+    toast({
+      title: "Recurso em Desenvolvimento",
+      description: "Export PDF será implementado em breve. Exportando como texto.",
+    });
+    exportAsText(content, filename);
+  };
+
+  const downloadFile = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `transcricao-${new Date().toISOString().split('T')[0]}.txt`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -88,7 +163,7 @@ export default function SidebarStats({
     
     toast({
       title: "Sucesso",
-      description: "Transcrição exportada com sucesso",
+      description: `Arquivo ${filename} exportado com sucesso`,
     });
   };
 
@@ -308,6 +383,13 @@ export default function SidebarStats({
             }
           });
         }}
+      />
+      
+      <ExportFormatModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExport={handleExportWithFormat}
+        transcript={transcript}
       />
     </div>
   );
