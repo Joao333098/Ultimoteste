@@ -348,9 +348,22 @@ export function useSpeechRecognition() {
               enhanceText({ text: finalTextClean.slice(-300), targetLanguage: currentLanguage });
             }
 
-            // Auto-translation melhorada: usando texto limpo
+            // Auto-translation melhorada: usando texto limpo com seleção automática de idioma
             if (autoTranslationEnabled && finalTextClean.trim().length > 5) {
-              const targetLang = translationTargetLanguage || "en-US";
+              // Auto-selecionar idioma de destino se não estiver definido
+              let targetLang = translationTargetLanguage;
+              if (!targetLang || targetLang.trim() === '') {
+                if (currentLanguage === "pt-BR") {
+                  targetLang = "en-US";
+                } else if (currentLanguage === "en-US") {
+                  targetLang = "pt-BR"; 
+                } else if (currentLanguage === "es-ES") {
+                  targetLang = "pt-BR";
+                } else {
+                  targetLang = "en-US";
+                }
+              }
+              
               if (targetLang !== currentLanguage) {
                 // Aguardar um pouco antes de traduzir para evitar múltiplas traduções
                 setTimeout(() => {

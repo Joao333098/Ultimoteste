@@ -160,13 +160,19 @@
        return;
      }
 
-     if (!translationTargetLanguage || translationTargetLanguage === 'auto') {
-       toast({
-         title: "Idioma não selecionado",
-         description: "Selecione um idioma de destino nas configurações",
-         variant: "destructive",
-       });
-       return;
+     // Auto-selecionar idioma se não estiver definido
+     let targetLang = translationTargetLanguage;
+     if (!targetLang || targetLang === 'auto' || targetLang.trim() === '') {
+       const currentLang = localStorage.getItem('currentLanguage') || 'pt-BR';
+       if (currentLang === "pt-BR") {
+         targetLang = "en-US";
+       } else if (currentLang === "en-US") {
+         targetLang = "pt-BR";
+       } else if (currentLang === "es-ES") {
+         targetLang = "pt-BR";
+       } else {
+         targetLang = "en-US";
+       }
      }
 
      const block = sentenceBlocks.find(b => b.id === blockId);
@@ -192,7 +198,7 @@
 
        translateSentence({ 
          text: block.originalText, 
-         targetLanguage: translationTargetLanguage 
+         targetLanguage: targetLang 
        });
      }
    };
