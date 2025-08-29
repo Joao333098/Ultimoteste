@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Mic, MicOff, RotateCcw, Globe, Brain, Languages, Settings, Trash2 } from "lucide-react";
+import { Mic, MicOff, RotateCcw, Globe, Brain, Languages, Settings, Trash2, Globe2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -194,8 +194,9 @@ export default function RecordingControls({
             <div className="flex items-center space-x-2 text-xs text-white/70">
               <span>Traduzindo para:</span>
               <Badge variant="outline" className="border-white/30 text-white">
-                {translationTargetLanguage === "pt-BR" ? "🇧🇷 PT-BR" : 
-                 translationTargetLanguage === "en-US" ? "🇺🇸 EN-US" : "🇪🇸 ES-ES"}
+                <Globe2 className="w-3 h-3 mr-1" />
+                {translationTargetLanguage === "pt-BR" ? "PT-BR" : 
+                 translationTargetLanguage === "en-US" ? "EN-US" : "ES-ES"}
               </Badge>
             </div>
           )}

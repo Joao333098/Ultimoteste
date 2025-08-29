@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Languages, Search, ArrowLeftRight, X } from "lucide-react";
+import { Languages, Search, ArrowLeftRight, X, Globe2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -219,7 +219,10 @@ export default function TranslationDialog({
                   <SelectContent className="bg-gray-900 border-white/20">
                     {languages.map(lang => (
                       <SelectItem key={lang.code} value={lang.code} className="text-white hover:bg-white/10">
-                        {lang.flag} {lang.name}
+                        <div className="flex items-center space-x-2">
+                          <Globe2 className="w-3 h-3" />
+                          <span>{lang.name}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -247,7 +250,10 @@ export default function TranslationDialog({
                   <SelectContent className="bg-gray-900 border-white/20">
                     {languages.map(lang => (
                       <SelectItem key={lang.code} value={lang.code} className="text-white hover:bg-white/10">
-                        {lang.flag} {lang.name}
+                        <div className="flex items-center space-x-2">
+                          <Globe2 className="w-3 h-3" />
+                          <span>{lang.name}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -269,7 +275,10 @@ export default function TranslationDialog({
                   <SelectContent className="bg-gray-900 border-white/20">
                     {languages.map(lang => (
                       <SelectItem key={lang.code} value={lang.code} className="text-white hover:bg-white/10">
-                        {lang.flag} {lang.name}
+                        <div className="flex items-center space-x-2">
+                          <Globe2 className="w-3 h-3" />
+                          <span>{lang.name}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -299,7 +308,11 @@ export default function TranslationDialog({
                 <div className="bg-white/5 rounded-lg p-4 border border-white/10">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-white/70">
-                      {getLanguageFlag(searchSourceLang)} → {getLanguageFlag(searchTargetLang)}
+                      <div className="flex items-center space-x-2">
+                        <Globe2 className="w-3 h-3" />
+                        <span>→</span>
+                        <Globe2 className="w-3 h-3" />
+                      </div>
                     </span>
                   </div>
                   <div className="text-lg font-medium">{wordTranslationResult}</div>
@@ -335,7 +348,10 @@ export default function TranslationDialog({
                     
                     return (
                       <span className="text-sm text-blue-400 bg-blue-400/20 px-2 py-1 rounded-full">
-                        {getLanguageFlag(autoTargetLang)} {getLanguageName(autoTargetLang)} (automático)
+                        <div className="flex items-center space-x-1">
+                          <Globe2 className="w-3 h-3" />
+                          <span>{getLanguageName(autoTargetLang)} (automático)</span>
+                        </div>
                       </span>
                     );
                   }
@@ -345,7 +361,10 @@ export default function TranslationDialog({
                   return (
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-medium">
-                        {getLanguageFlag(translationTargetLanguage)} {getLanguageName(translationTargetLanguage)}
+                        <div className="flex items-center space-x-1">
+                          <Globe2 className="w-3 h-3" />
+                          <span>{getLanguageName(translationTargetLanguage)}</span>
+                        </div>
                       </span>
                       {isSameLanguage && (
                         <span className="text-xs text-blue-400 bg-blue-400/20 px-2 py-1 rounded-full">
@@ -362,7 +381,19 @@ export default function TranslationDialog({
                 disabled={!currentTranscript.trim() || isTranslatingFull}
                 className="w-full bg-purple-600 hover:bg-purple-700"
               >
-                {isTranslatingFull ? "Traduzindo..." : "Traduzir"}
+                <div className="flex items-center space-x-2">
+                  {isTranslatingFull ? (
+                    <>
+                      <RotateCw className="w-4 h-4 animate-spin" />
+                      <span>Traduzindo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Globe2 className="w-4 h-4" />
+                      <span>Traduzir</span>
+                    </>
+                  )}
+                </div>
               </Button>
 
               {fullTranscriptResult && (

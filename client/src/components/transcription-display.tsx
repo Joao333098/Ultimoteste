@@ -1,5 +1,5 @@
  import React, { useState, useEffect } from "react";
- import { Copy, Download, Maximize, Trash2 } from "lucide-react";
+ import { Copy, Download, Maximize, Trash2, Globe, RotateCcw, Loader2 } from "lucide-react";
  import { Button } from "@/components/ui/button";
  import { useToast } from "@/hooks/use-toast";
  import { useMutation } from "@tanstack/react-query";
@@ -35,6 +35,7 @@
    const [sentenceBlocks, setSentenceBlocks] = useState<SentenceBlock[]>([]);
    const [lastProcessedTranscript, setLastProcessedTranscript] = useState("");
    const [interimText, setInterimText] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
 
    const { mutate: translateSentence } = useMutation({
      mutationFn: async ({ text, targetLanguage }: { text: string; targetLanguage: string }) => {
@@ -287,17 +288,18 @@
              <Download className="w-4 h-4" />
            </Button>
            <Button
+             onClick={() => setIsExpanded(!isExpanded)}
              variant="ghost"
              size="sm"
              className="text-white hover:bg-white/20 hover:scale-110 transition-all duration-300"
-             title="Expandir"
+             title={isExpanded ? "Minimizar" : "Expandir"}
            >
              <Maximize className="w-4 h-4" />
            </Button>
          </div>
        </div>
 
-       <div className="glass-card rounded-2xl p-6 h-80 overflow-y-auto border-2 border-dashed border-white/30 shadow-large">
+       <div className={`glass-card rounded-2xl p-6 ${isExpanded ? 'h-[600px]' : 'h-80'} overflow-y-auto border-2 border-dashed border-white/30 shadow-large transition-all duration-500`}>
          {sentenceBlocks.length > 0 || interimText ? (
            <div className="space-y-3">
              {/* Frases já processadas - CADA UMA SEPARADA */}
@@ -320,29 +322,56 @@
                  </div>
 
                  {autoTranslationEnabled && (
-                   <div className="flex items-center justify-between">
-                     <div className="text-xs text-blue-600 font-medium flex items-center space-x-1">
-                       <span>🌐</span>
-                       <span>Clique para traduzir</span>
-                     </div>
+                   <div className="mt-3">
+                     {!block.isTranslating && !block.translatedText && (
+                       <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border border-blue-200/50 hover:border-blue-300 transition-all duration-200">
+                         <div className="flex items-center justify-between">
+                           <div className="flex items-center space-x-2">
+                             <div className="p-1.5 bg-blue-100 rounded-full">
+                               <Globe className="w-3 h-3 text-blue-600" />
+                             </div>
+                             <span className="text-sm font-medium text-blue-700">Clique para traduzir</span>
+                           </div>
+                           <div className="text-xs text-blue-500 bg-blue-100 px-2 py-1 rounded-full">
+                             Instant
+                           </div>
+                         </div>
+                       </div>
+                     )}
 
                      {block.isTranslating && (
-                       <div className="text-xs text-blue-500 flex items-center space-x-1">
-                         <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                         <span>Traduzindo...</span>
+                       <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-3 border border-amber-200">
+                         <div className="flex items-center space-x-2">
+                           <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                           <span className="text-sm font-medium text-amber-700">Traduzindo...</span>
+                           <div className="ml-auto">
+                             <div className="flex space-x-1">
+                               <div className="w-1 h-1 bg-amber-400 rounded-full animate-pulse"></div>
+                               <div className="w-1 h-1 bg-amber-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                               <div className="w-1 h-1 bg-amber-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                             </div>
+                           </div>
+                         </div>
                        </div>
                      )}
                    </div>
                  )}
 
                  {block.showTranslation && block.translatedText && (
-                   <div className="mt-3 pt-3 border-t border-gray-200">
-                     <div className="bg-blue-50 rounded-lg p-3 border-l-4 border-blue-400">
-                       <div className="text-xs text-blue-600 font-semibold mb-1 flex items-center space-x-1">
-                         <span>🔄</span>
-                         <span>TRADUZIDO</span>
+                   <div className="mt-3">
+                     <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg p-4 border border-emerald-200 shadow-sm">
+                       <div className="flex items-center justify-between mb-2">
+                         <div className="flex items-center space-x-2">
+                           <div className="p-1.5 bg-emerald-100 rounded-full">
+                             <RotateCcw className="w-3 h-3 text-emerald-600" />
+                           </div>
+                           <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Traduzido</span>
+                         </div>
+                         <div className="text-xs text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full font-medium">
+                           ✓ Concluído
+                         </div>
                        </div>
-                       <div className="text-blue-800 font-medium text-lg">
+                       <div className="text-emerald-800 font-medium text-lg leading-relaxed">
                          {block.translatedText}
                        </div>
                      </div>
