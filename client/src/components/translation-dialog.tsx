@@ -141,19 +141,28 @@ export default function TranslationDialog({
       return;
     }
 
-    // Verificar se há idioma de destino selecionado
-    if (!translationTargetLanguage || translationTargetLanguage.trim() === '') {
-      toast({
-        title: "Idioma não selecionado",
-        description: "Selecione um idioma de destino nas configurações",
-        variant: "destructive",
-      });
-      return;
+    // Auto-selecionar idioma de destino baseado no idioma atual se não estiver definido
+    const currentLang = localStorage.getItem('currentLanguage') || 'pt-BR';
+    let targetLang = translationTargetLanguage;
+    
+    if (!targetLang || targetLang.trim() === '') {
+      // Seleção automática inteligente
+      if (currentLang === "pt-BR") {
+        targetLang = "en-US"; // Se estiver em português, traduzir para inglês
+      } else if (currentLang === "en-US") {
+        targetLang = "pt-BR"; // Se estiver em inglês, traduzir para português
+      } else if (currentLang === "es-ES") {
+        targetLang = "pt-BR"; // Se estiver em espanhol, traduzir para português
+      } else {
+        targetLang = "en-US"; // Fallback para inglês
+      }
+      
+      // Atualizar o idioma de destino automaticamente
+      onSetTranslationTarget(targetLang);
     }
 
     // Se o idioma de destino for igual ao idioma atual, exibir texto original
-    const currentLang = localStorage.getItem('currentLanguage') || 'pt-BR';
-    if (translationTargetLanguage === currentLang) {
+    if (targetLang === currentLang) {
       setFullTranscriptResult(cleanText);
       toast({
         title: "Mesmo idioma",
@@ -162,7 +171,7 @@ export default function TranslationDialog({
       return;
     }
 
-    translateFullText({ text: cleanText, targetLanguage: translationTargetLanguage });
+    translateFullText({ text: cleanText, targetLanguage: targetLang });
   };
 
   const getLanguageName = (code: string) => {
@@ -312,9 +321,21 @@ export default function TranslationDialog({
                   const currentLang = localStorage.getItem('currentLanguage') || 'pt-BR';
                   
                   if (!translationTargetLanguage || translationTargetLanguage.trim() === '') {
+                    // Mostrar qual idioma será automaticamente selecionado
+                    let autoTargetLang;
+                    if (currentLang === "pt-BR") {
+                      autoTargetLang = "en-US";
+                    } else if (currentLang === "en-US") {
+                      autoTargetLang = "pt-BR";
+                    } else if (currentLang === "es-ES") {
+                      autoTargetLang = "pt-BR";
+                    } else {
+                      autoTargetLang = "en-US";
+                    }
+                    
                     return (
-                      <span className="text-sm text-red-400 bg-red-400/20 px-2 py-1 rounded-full">
-                        Nenhum idioma selecionado
+                      <span className="text-sm text-blue-400 bg-blue-400/20 px-2 py-1 rounded-full">
+                        {getLanguageFlag(autoTargetLang)} {getLanguageName(autoTargetLang)} (automático)
                       </span>
                     );
                   }
