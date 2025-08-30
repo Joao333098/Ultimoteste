@@ -196,11 +196,26 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      setSentenceBlocks(prev => {
        const updated = [...prev, ...newBlocks];
        
-       // Análise automática da IA se ativada
+       // Análise automática da IA se ativada - detecta QUALQUER frase nova
        if (autoAiEnabled && newBlocks.length > 0) {
          const lastBlock = newBlocks[newBlocks.length - 1];
-         if (detectQuestion(lastBlock.originalText) || detectMath(lastBlock.originalText)) {
-           setTimeout(() => handleAutoAiAnalysis(lastBlock.originalText), 1500);
+         const text = lastBlock.originalText.toLowerCase();
+         
+         console.log("🔍 Verificando análise automática para:", text);
+         console.log("🔍 É pergunta?", detectQuestion(text));
+         console.log("🔍 É matemática?", detectMath(text));
+         
+         // Detecção mais ampla - qualquer texto que pareça interativo
+         const shouldAnalyze = 
+           detectQuestion(text) || 
+           detectMath(text) ||
+           text.length > 10; // Frases longas também merecem análise
+         
+         if (shouldAnalyze) {
+           console.log("✅ Iniciando análise automática");
+           setTimeout(() => handleAutoAiAnalysis(lastBlock.originalText), 1000);
+         } else {
+           console.log("❌ Não iniciando análise automática");
          }
        }
        
@@ -278,12 +293,12 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      }
    }, [analyzeAdvanced, sentenceBlocks, isAutoAnalyzing, detectQuestion]);
 
-   // Clique na mensagem transcrita - agora com dupla funcionalidade
-   const handleSentenceClick = (blockId: string) => {
+   // Função específica para análise IA
+   const handleAiClick = (blockId: string) => {
      const block = sentenceBlocks.find(b => b.id === blockId);
      if (!block) return;
 
-     // Prioridade 1: Análise IA (se já existe, alternar)
+     // Se já tem análise IA, alternar exibição
      if (block.aiResponse) {
        setSentenceBlocks(prev => prev.map(b => 
          b.id === blockId 
@@ -293,17 +308,7 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
        return;
      }
 
-     // Prioridade 2: Tradução (se ativada e já existe, alternar)
-     if (autoTranslationEnabled && block.translatedText) {
-       setSentenceBlocks(prev => prev.map(b => 
-         b.id === blockId 
-           ? { ...b, showTranslation: !b.showTranslation }
-           : b
-       ));
-       return;
-     }
-
-     // Prioridade 3: Nova análise IA (preferencial)
+     // Se não tem análise, fazer análise da IA
      if (!block.isAnalyzing) {
        setSentenceBlocks(prev => prev.map(b => 
          b.id === blockId 
@@ -323,9 +328,25 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
          useContext: true
        });
      }
+   };
 
-     // Prioridade 4: Nova tradução (se ativada e não em progresso)
-     else if (autoTranslationEnabled && !block.isTranslating && translationTargetLanguage && translationTargetLanguage !== 'auto') {
+   // Função específica para tradução
+   const handleTranslationClick = (blockId: string) => {
+     const block = sentenceBlocks.find(b => b.id === blockId);
+     if (!block) return;
+
+     // Se já tem tradução, alternar exibição
+     if (block.translatedText) {
+       setSentenceBlocks(prev => prev.map(b => 
+         b.id === blockId 
+           ? { ...b, showTranslation: !b.showTranslation }
+           : b
+       ));
+       return;
+     }
+
+     // Se não tem tradução, fazer tradução
+     if (!block.isTranslating) {
        setSentenceBlocks(prev => prev.map(b => 
          b.id === blockId 
            ? { ...b, isTranslating: true }
@@ -334,9 +355,14 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
 
        translateSentence({ 
          text: block.originalText, 
-         targetLanguage: translationTargetLanguage 
+         targetLanguage: translationTargetLanguage || 'en' 
        });
      }
+   };
+
+   // Clique geral na mensagem (agora apenas para feedback visual)
+   const handleSentenceClick = (blockId: string) => {
+     // Não faz nada - agora temos botões específicos
    };
 
    const handleCopy = async () => {
@@ -459,11 +485,10 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
              {sentenceBlocks.map((block) => (
                <div
                  key={block.id}
-                 onClick={() => handleSentenceClick(block.id)}
                  className={`
                    relative bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg 
                    border border-gray-200/50 transition-all duration-300
-                   cursor-pointer hover:bg-white hover:shadow-xl hover:scale-[1.02] hover:border-blue-300/50
+                   hover:shadow-xl hover:scale-[1.01]
                  `}
                >
                  <div className="text-xs text-gray-500 mb-2 font-medium">
@@ -475,17 +500,37 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                  </div>
 
                  <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-4">
-                     <div className="text-xs text-blue-600 font-medium flex items-center space-x-1">
-                       <Brain className="w-3 h-3" />
-                       <span>Clique para análise IA</span>
-                     </div>
+                   <div className="flex items-center gap-2">
+                     {/* Botão de IA */}
+                     <Button
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         handleAiClick(block.id);
+                       }}
+                       variant="ghost"
+                       size="sm"
+                       className="h-6 px-2 text-xs text-blue-600 hover:bg-blue-100"
+                       disabled={block.isAnalyzing}
+                     >
+                       <Brain className="w-3 h-3 mr-1" />
+                       IA
+                     </Button>
                      
-                     {autoTranslationEnabled && (
-                       <div className="text-xs text-green-600 font-medium flex items-center space-x-1">
-                         <span>🌐</span>
-                         <span>Tradução disponível</span>
-                       </div>
+                     {/* Botão de Tradução (se ativo) */}
+                     {autoTranslationEnabled && translationTargetLanguage && translationTargetLanguage !== 'auto' && (
+                       <Button
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleTranslationClick(block.id);
+                         }}
+                         variant="ghost"
+                         size="sm"
+                         className="h-6 px-2 text-xs text-green-600 hover:bg-green-100"
+                         disabled={block.isTranslating}
+                       >
+                         <span className="mr-1">🌐</span>
+                         Traduzir
+                       </Button>
                      )}
                    </div>
 
@@ -497,7 +542,7 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                        </div>
                      )}
                      
-                     {autoTranslationEnabled && block.isTranslating && (
+                     {block.isTranslating && (
                        <div className="text-xs text-green-500 flex items-center space-x-1">
                          <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
                          <span>Traduzindo...</span>
