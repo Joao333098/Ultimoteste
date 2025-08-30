@@ -560,7 +560,13 @@ Seja inteligente, contextual e útil. Use toda a informação disponível para d
     });
 
     try {
-      const parsed = JSON.parse(responseText);
+      // Limpar markdown wrapper se presente
+      let cleanResponse = responseText;
+      if (responseText.includes('```json')) {
+        cleanResponse = responseText.replace(/```json\s*|\s*```/g, '').trim();
+      }
+      
+      const parsed = JSON.parse(cleanResponse);
       return {
         answer: parsed.answer || "Não foi possível gerar uma resposta adequada.",
         confidence: Math.max(0, Math.min(1, parsed.confidence || 0.7)),

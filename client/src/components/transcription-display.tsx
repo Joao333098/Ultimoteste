@@ -239,9 +239,17 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
    const detectMath = useCallback((text: string): boolean => {
      const mathPatterns = [
        /\d+\s*[+\-*/÷×]\s*\d+/,
-       /\b(quanto é|qual é o resultado|calcule|some|subtraia|multiplique|divida)\b/i,
-       /\b(mais|menos|vezes|dividido|por)\b.*\d/i,
-       /\d+.*\b(mais|menos|vezes|dividido|por)\b/i
+       /\b(quanto é|quanto vale|qual é o resultado|calcule|some|subtraia|multiplique|divida)\b/i,
+       /\b\d+\s+(mais|menos|vezes|dividido|por)\s+\d+\b/i,
+       /\bmais\b.*\d|\d.*\bmais\b/i,
+       /\bmenos\b.*\d|\d.*\bmenos\b/i,
+       /\bvezes\b.*\d|\d.*\bvezes\b/i,
+       /\bdividido\b.*\d|\d.*\bdividido\b/i,
+       // Padrões específicos em português
+       /\b\d+\s*\+\s*\d+/,
+       /\btrês\s+mais\s+três/i,
+       /\bdois\s+mais\s+dois/i,
+       /\bquatro\s+menos\s+um/i
      ];
      return mathPatterns.some(pattern => pattern.test(text));
    }, []);
@@ -270,12 +278,12 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      }
    }, [analyzeAdvanced, sentenceBlocks, isAutoAnalyzing, detectQuestion]);
 
-   // Clique na mensagem transcrita para análise IA
+   // Clique na mensagem transcrita - agora com dupla funcionalidade
    const handleSentenceClick = (blockId: string) => {
      const block = sentenceBlocks.find(b => b.id === blockId);
      if (!block) return;
 
-     // Se já tem análise IA, alternar exibição
+     // Prioridade 1: Análise IA (se já existe, alternar)
      if (block.aiResponse) {
        setSentenceBlocks(prev => prev.map(b => 
          b.id === blockId 
@@ -285,7 +293,17 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
        return;
      }
 
-     // Se não tem análise, fazer análise da IA
+     // Prioridade 2: Tradução (se ativada e já existe, alternar)
+     if (autoTranslationEnabled && block.translatedText) {
+       setSentenceBlocks(prev => prev.map(b => 
+         b.id === blockId 
+           ? { ...b, showTranslation: !b.showTranslation }
+           : b
+       ));
+       return;
+     }
+
+     // Prioridade 3: Nova análise IA (preferencial)
      if (!block.isAnalyzing) {
        setSentenceBlocks(prev => prev.map(b => 
          b.id === blockId 
@@ -294,16 +312,29 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
        ));
 
        const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ');
-       
        const isQuestion = detectQuestion(block.originalText);
        const prompt = isQuestion 
-         ? `Responda esta pergunta baseada no contexto: "${block.originalText}"`
-         : `Analise e descreva esta informação: "${block.originalText}"`;
+         ? `Responda esta pergunta de forma clara e direta: "${block.originalText}"`
+         : `Analise e explique brevemente: "${block.originalText}"`;
 
        analyzeAdvanced({
          transcription: fullTranscript,
          question: prompt,
          useContext: true
+       });
+     }
+
+     // Prioridade 4: Nova tradução (se ativada e não em progresso)
+     else if (autoTranslationEnabled && !block.isTranslating && translationTargetLanguage && translationTargetLanguage !== 'auto') {
+       setSentenceBlocks(prev => prev.map(b => 
+         b.id === blockId 
+           ? { ...b, isTranslating: true }
+           : b
+       ));
+
+       translateSentence({ 
+         text: block.originalText, 
+         targetLanguage: translationTargetLanguage 
        });
      }
    };
@@ -444,19 +475,53 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                  </div>
 
                  <div className="flex items-center justify-between">
-                   <div className="text-xs text-blue-600 font-medium flex items-center space-x-1">
-                     <Brain className="w-3 h-3" />
-                     <span>Clique para análise IA</span>
+                   <div className="flex items-center gap-4">
+                     <div className="text-xs text-blue-600 font-medium flex items-center space-x-1">
+                       <Brain className="w-3 h-3" />
+                       <span>Clique para análise IA</span>
+                     </div>
+                     
+                     {autoTranslationEnabled && (
+                       <div className="text-xs text-green-600 font-medium flex items-center space-x-1">
+                         <span>🌐</span>
+                         <span>Tradução disponível</span>
+                       </div>
+                     )}
                    </div>
 
-                   {block.isAnalyzing && (
-                     <div className="text-xs text-blue-500 flex items-center space-x-1">
-                       <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                       <span>Analisando...</span>
-                     </div>
-                   )}
+                   <div className="flex items-center gap-2">
+                     {block.isAnalyzing && (
+                       <div className="text-xs text-blue-500 flex items-center space-x-1">
+                         <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                         <span>Analisando...</span>
+                       </div>
+                     )}
+                     
+                     {autoTranslationEnabled && block.isTranslating && (
+                       <div className="text-xs text-green-500 flex items-center space-x-1">
+                         <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                         <span>Traduzindo...</span>
+                       </div>
+                     )}
+                   </div>
                  </div>
 
+                 {/* Exibir tradução se disponível */}
+                 {block.showTranslation && block.translatedText && (
+                   <div className="mt-3 pt-3 border-t border-gray-200">
+                     <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-400">
+                       <div className="text-xs text-green-600 font-semibold mb-1 flex items-center space-x-1">
+                         <span>🔄</span>
+                         <span>TRADUZIDO</span>
+                       </div>
+                       <div className="text-green-800 font-medium text-sm leading-relaxed">
+                         {block.translatedText}
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
+                 {/* Exibir análise IA se disponível */}
                  {block.hasAiAnalysis && block.aiResponse && (
                    <div className="mt-3 pt-3 border-t border-gray-200">
                      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border-l-4 border-blue-400">
@@ -465,7 +530,7 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                          <span>ANÁLISE IA</span>
                        </div>
                        <div className="text-blue-800 font-medium text-sm leading-relaxed">
-                         {block.aiResponse}
+                         {(block.aiResponse as any)?.answer || block.aiResponse || 'Análise processada'}
                        </div>
                      </div>
                    </div>
@@ -486,23 +551,27 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                </div>
              )}
 
-             {/* Avisos sobre tradução */}
-             {!autoTranslationEnabled && sentenceBlocks.length > 0 && (
-               <div className="text-center py-4">
-                 <div className="inline-block bg-yellow-100/90 border border-yellow-300 rounded-lg px-4 py-2">
-                   <span className="text-yellow-800 text-sm">
-                     💡 Ative a tradução automática para ver traduções
-                   </span>
-                 </div>
-               </div>
-             )}
-
-             {autoTranslationEnabled && (!translationTargetLanguage || translationTargetLanguage === 'auto') && (
-               <div className="text-center py-4">
-                 <div className="inline-block bg-orange-100/90 border border-orange-300 rounded-lg px-4 py-2">
-                   <span className="text-orange-800 text-sm">
-                     ⚠️ Selecione um idioma de destino para traduzir
-                   </span>
+             {/* Status da IA e Tradução */}
+             {sentenceBlocks.length > 0 && (
+               <div className="text-center py-3">
+                 <div className="flex items-center justify-center gap-4 flex-wrap">
+                   {autoAiEnabled && (
+                     <div className="bg-blue-100/90 border border-blue-300 rounded-full px-3 py-1 text-xs">
+                       <span className="text-blue-800 font-medium">🤖 IA automática ativa</span>
+                     </div>
+                   )}
+                   
+                   {autoTranslationEnabled && translationTargetLanguage && translationTargetLanguage !== 'auto' && (
+                     <div className="bg-green-100/90 border border-green-300 rounded-full px-3 py-1 text-xs">
+                       <span className="text-green-800 font-medium">🌐 Tradução para {translationTargetLanguage.toUpperCase()}</span>
+                     </div>
+                   )}
+                   
+                   {autoTranslationEnabled && (!translationTargetLanguage || translationTargetLanguage === 'auto') && (
+                     <div className="bg-orange-100/90 border border-orange-300 rounded-full px-3 py-1 text-xs">
+                       <span className="text-orange-800 font-medium">⚠️ Selecione idioma para traduzir</span>
+                     </div>
+                   )}
                  </div>
                </div>
              )}
@@ -616,9 +685,23 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                  </Badge>
                </div>
                <div className="prose prose-gray max-w-none">
-                 <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                   {analysisResult.response}
+                 <div className="text-gray-700 leading-relaxed">
+                   {(analysisResult as any)?.answer || (analysisResult as any)?.response || analysisResult}
                  </div>
+                 
+                 {/* Tópicos relacionados se disponíveis */}
+                 {(analysisResult as any)?.relatedTopics && (analysisResult as any).relatedTopics.length > 0 && (
+                   <div className="mt-3 pt-3 border-t border-gray-200">
+                     <div className="text-xs text-gray-500 mb-2">Tópicos relacionados:</div>
+                     <div className="flex flex-wrap gap-1">
+                       {(analysisResult as any).relatedTopics.map((topic: string, index: number) => (
+                         <Badge key={index} variant="outline" className="text-xs bg-gray-100">
+                           {topic}
+                         </Badge>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                </div>
              </div>
            ) : (
