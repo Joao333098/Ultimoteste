@@ -1,16 +1,37 @@
+
 /**
- * Sistema Avançado de NLP para VoiceScribe AI
- * Implementa técnicas avançadas de processamento de linguagem natural
+ * Sistema Super Avançado de NLP para VoiceScribe AI
+ * Implementa detecção inteligente de perguntas implícitas e matemática
  */
 
-// Tipos para análise avançada de NLP
-export interface NLPAnalysis {
+// Tipos para análise super avançada de NLP
+export interface SuperNLPAnalysis {
   sentiment: SentimentAnalysis;
   intent: IntentDetection;
   entities: EntityExtraction[];
   topics: TopicExtraction[];
   importance: ImportanceScore;
   context: ContextAnalysis;
+  implicitQuestion: ImplicitQuestionAnalysis;
+  mathematical: MathematicalAnalysis;
+}
+
+export interface ImplicitQuestionAnalysis {
+  isImplicitQuestion: boolean;
+  questionType: 'doubt' | 'request' | 'mathematical' | 'explanation' | 'confirmation' | 'none';
+  confidence: number;
+  needsResponse: boolean;
+  detectedPatterns: string[];
+  reasoning: string;
+}
+
+export interface MathematicalAnalysis {
+  isMathematical: boolean;
+  expression: string;
+  operation: 'addition' | 'subtraction' | 'multiplication' | 'division' | 'complex' | 'none';
+  numbers: number[];
+  result?: number;
+  confidence: number;
 }
 
 export interface SentimentAnalysis {
@@ -58,6 +79,8 @@ export interface ImportanceScore {
     sentimentIntensity: number;
     textLength: number;
     contextRelevance: number;
+    implicitQuestionScore: number;
+    mathematicalScore: number;
   };
 }
 
@@ -69,40 +92,46 @@ export interface ContextAnalysis {
 }
 
 /**
- * Classe principal para análise avançada de NLP
+ * Classe principal para análise super avançada de NLP
  */
-export class AdvancedNLPProcessor {
+export class SuperAdvancedNLPProcessor {
   private conversationHistory: string[] = [];
   private topicHistory: TopicExtraction[] = [];
   private sentimentHistory: SentimentAnalysis[] = [];
 
   /**
-   * Análise completa de um texto usando múltiplas técnicas de NLP
+   * Análise completa super avançada com detecção de perguntas implícitas
    */
-  async analyzeText(text: string, context?: string[]): Promise<NLPAnalysis> {
+  async analyzeText(text: string, context?: string[]): Promise<SuperNLPAnalysis> {
     const [
       sentiment,
       intent,
       entities,
       topics,
-      contextAnalysis
+      contextAnalysis,
+      implicitQuestion,
+      mathematical
     ] = await Promise.all([
       this.analyzeSentiment(text),
       this.detectIntent(text),
       this.extractEntities(text),
       this.extractTopics(text),
-      this.analyzeContext(text, context)
+      this.analyzeContext(text, context),
+      this.analyzeImplicitQuestion(text),
+      this.analyzeMathematical(text)
     ]);
 
-    const importance = this.calculateImportance(text, sentiment, intent, entities, topics);
+    const importance = this.calculateImportance(text, sentiment, intent, entities, topics, implicitQuestion, mathematical);
 
-    const analysis: NLPAnalysis = {
+    const analysis: SuperNLPAnalysis = {
       sentiment,
       intent,
       entities,
       topics,
       importance,
-      context: contextAnalysis
+      context: contextAnalysis,
+      implicitQuestion,
+      mathematical
     };
 
     // Atualizar histórico
@@ -112,7 +141,240 @@ export class AdvancedNLPProcessor {
   }
 
   /**
-   * Análise avançada de sentimento com detecção de emoções
+   * Análise super avançada de perguntas implícitas
+   */
+  private async analyzeImplicitQuestion(text: string): Promise<ImplicitQuestionAnalysis> {
+    const lowerText = text.toLowerCase().trim();
+    let isImplicitQuestion = false;
+    let questionType: ImplicitQuestionAnalysis['questionType'] = 'none';
+    let confidence = 0.5;
+    let needsResponse = false;
+    const detectedPatterns: string[] = [];
+    let reasoning = '';
+
+    // Padrões de dúvida implícita - SUPER DETALHADOS
+    const doubtPatterns = [
+      { pattern: /\b(não sei|nao sei|não tenho certeza|nao tenho certeza)\b/i, type: 'doubt', confidence: 0.9 },
+      { pattern: /\b(talvez|será que|pode ser|deve ser|acho que|creio que)\b/i, type: 'doubt', confidence: 0.8 },
+      { pattern: /\b(tenho dúvida|tenho duvida|não entendi|nao entendi|não compreendi|nao compreendi)\b/i, type: 'doubt', confidence: 0.9 },
+      { pattern: /\b(como assim|o que significa|que quer dizer|não entendo|nao entendo)\b/i, type: 'explanation', confidence: 0.85 },
+      { pattern: /\b(está certo|esta certo|isso é correto|isso e correto)\?/i, type: 'confirmation', confidence: 0.8 }
+    ];
+
+    // Padrões matemáticos implícitos
+    const mathImplicitPatterns = [
+      { pattern: /\b(quanto é|quanto vale|qual é o resultado|calcule|some|subtraia)\b/i, type: 'mathematical', confidence: 0.95 },
+      { pattern: /\d+\s*[+\-*/÷×]\s*\d+/, type: 'mathematical', confidence: 0.98 },
+      { pattern: /\b(mais|menos|vezes|dividido)\b.*\d/i, type: 'mathematical', confidence: 0.85 },
+      { pattern: /\d+.*\b(mais|menos|vezes|dividido|por)\b.*\d/i, type: 'mathematical', confidence: 0.9 }
+    ];
+
+    // Padrões de solicitação implícita
+    const requestPatterns = [
+      { pattern: /\b(me ajude|preciso|quero|gostaria|poderia|pode)\b/i, type: 'request', confidence: 0.8 },
+      { pattern: /\b(como faço|como fazer|me ensina|me mostra|me explica)\b/i, type: 'explanation', confidence: 0.9 },
+      { pattern: /\b(não funcionou|nao funcionou|não deu certo|nao deu certo|deu erro)\b/i, type: 'request', confidence: 0.75 }
+    ];
+
+    // Padrões de confirmação implícita
+    const confirmationPatterns = [
+      { pattern: /\b(correto|certo|verdade|exato|mesmo|realmente)\?/i, type: 'confirmation', confidence: 0.8 },
+      { pattern: /\b(né|não é|nao e|concorda|acha)\?/i, type: 'confirmation', confidence: 0.7 }
+    ];
+
+    // Verificar todos os padrões
+    const allPatterns = [...doubtPatterns, ...mathImplicitPatterns, ...requestPatterns, ...confirmationPatterns];
+    
+    for (const { pattern, type, confidence: patternConfidence } of allPatterns) {
+      if (pattern.test(text)) {
+        isImplicitQuestion = true;
+        questionType = type as ImplicitQuestionAnalysis['questionType'];
+        confidence = Math.max(confidence, patternConfidence);
+        needsResponse = true;
+        detectedPatterns.push(pattern.source);
+        reasoning += `Detectado padrão ${type}: ${pattern.source}. `;
+      }
+    }
+
+    // Análise contextual de tom interrogativo
+    if (!isImplicitQuestion) {
+      // Padrões de tom duvidoso sem palavras explícitas
+      const vaguePatterns = [
+        /\b(isso|este|esta|essa|aquilo)\s+(parece|é|está)\b/i,
+        /\b(meio|um pouco|mais ou menos|tipo)\b/i,
+        /\b(será|deve|pode|poderia)\b/i
+      ];
+
+      for (const pattern of vaguePatterns) {
+        if (pattern.test(text)) {
+          isImplicitQuestion = true;
+          questionType = 'doubt';
+          confidence = 0.6;
+          needsResponse = true;
+          detectedPatterns.push('vague_expression');
+          reasoning += 'Detectado tom duvidoso implícito. ';
+          break;
+        }
+      }
+    }
+
+    // Análise de entonação baseada em pontuação
+    if (text.includes('...') || (text.split(' ').length < 5 && !text.includes('.'))) {
+      isImplicitQuestion = true;
+      questionType = questionType === 'none' ? 'doubt' : questionType;
+      confidence = Math.max(confidence, 0.7);
+      needsResponse = true;
+      detectedPatterns.push('incomplete_thought');
+      reasoning += 'Pensamento incompleto detectado. ';
+    }
+
+    if (!reasoning) {
+      reasoning = 'Nenhum padrão de pergunta implícita detectado.';
+    }
+
+    return {
+      isImplicitQuestion,
+      questionType,
+      confidence,
+      needsResponse,
+      detectedPatterns,
+      reasoning: reasoning.trim()
+    };
+  }
+
+  /**
+   * Análise matemática super avançada
+   */
+  private async analyzeMathematical(text: string): Promise<MathematicalAnalysis> {
+    let isMathematical = false;
+    let expression = '';
+    let operation: MathematicalAnalysis['operation'] = 'none';
+    let numbers: number[] = [];
+    let result: number | undefined;
+    let confidence = 0;
+
+    // Extrair números do texto
+    const numberMatches = text.match(/\d+(?:\.\d+)?/g);
+    if (numberMatches) {
+      numbers = numberMatches.map(n => parseFloat(n));
+    }
+
+    // Padrões matemáticos explícitos
+    const explicitMathPatterns = [
+      { pattern: /(\d+(?:\.\d+)?)\s*\+\s*(\d+(?:\.\d+)?)/, operation: 'addition' as const, confidence: 0.98 },
+      { pattern: /(\d+(?:\.\d+)?)\s*\-\s*(\d+(?:\.\d+)?)/, operation: 'subtraction' as const, confidence: 0.98 },
+      { pattern: /(\d+(?:\.\d+)?)\s*\*\s*(\d+(?:\.\d+)?)/, operation: 'multiplication' as const, confidence: 0.98 },
+      { pattern: /(\d+(?:\.\d+)?)\s*[\/÷]\s*(\d+(?:\.\d+)?)/, operation: 'division' as const, confidence: 0.98 },
+      { pattern: /(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)/, operation: 'multiplication' as const, confidence: 0.98 }
+    ];
+
+    for (const { pattern, operation: op, confidence: conf } of explicitMathPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        isMathematical = true;
+        expression = match[0];
+        operation = op;
+        confidence = conf;
+        
+        const num1 = parseFloat(match[1]);
+        const num2 = parseFloat(match[2]);
+        numbers = [num1, num2];
+
+        // Calcular resultado
+        switch (operation) {
+          case 'addition':
+            result = num1 + num2;
+            break;
+          case 'subtraction':
+            result = num1 - num2;
+            break;
+          case 'multiplication':
+            result = num1 * num2;
+            break;
+          case 'division':
+            result = num2 !== 0 ? num1 / num2 : undefined;
+            break;
+        }
+        break;
+      }
+    }
+
+    // Padrões matemáticos por extenso
+    if (!isMathematical) {
+      const wordMathPatterns = [
+        { pattern: /(\d+(?:\.\d+)?)\s+mais\s+(\d+(?:\.\d+)?)/i, operation: 'addition' as const, confidence: 0.9 },
+        { pattern: /(\d+(?:\.\d+)?)\s+menos\s+(\d+(?:\.\d+)?)/i, operation: 'subtraction' as const, confidence: 0.9 },
+        { pattern: /(\d+(?:\.\d+)?)\s+vezes\s+(\d+(?:\.\d+)?)/i, operation: 'multiplication' as const, confidence: 0.9 },
+        { pattern: /(\d+(?:\.\d+)?)\s+dividido\s+por\s+(\d+(?:\.\d+)?)/i, operation: 'division' as const, confidence: 0.9 }
+      ];
+
+      for (const { pattern, operation: op, confidence: conf } of wordMathPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          isMathematical = true;
+          expression = match[0];
+          operation = op;
+          confidence = conf;
+          
+          const num1 = parseFloat(match[1]);
+          const num2 = parseFloat(match[2]);
+          numbers = [num1, num2];
+
+          // Calcular resultado
+          switch (operation) {
+            case 'addition':
+              result = num1 + num2;
+              break;
+            case 'subtraction':
+              result = num1 - num2;
+              break;
+            case 'multiplication':
+              result = num1 * num2;
+              break;
+            case 'division':
+              result = num2 !== 0 ? num1 / num2 : undefined;
+              break;
+          }
+          break;
+        }
+      }
+    }
+
+    // Padrões de pergunta matemática
+    if (!isMathematical && numbers.length >= 2) {
+      const mathQuestionPatterns = [
+        /quanto\s+é/i,
+        /qual\s+é\s+o\s+resultado/i,
+        /calcule/i,
+        /some/i,
+        /subtraia/i,
+        /multiplique/i,
+        /divida/i
+      ];
+
+      for (const pattern of mathQuestionPatterns) {
+        if (pattern.test(text)) {
+          isMathematical = true;
+          expression = text;
+          operation = 'complex';
+          confidence = 0.8;
+          break;
+        }
+      }
+    }
+
+    return {
+      isMathematical,
+      expression,
+      operation,
+      numbers,
+      result,
+      confidence
+    };
+  }
+
+  /**
+   * Análise avançada de sentimento
    */
   private async analyzeSentiment(text: string): Promise<SentimentAnalysis> {
     // Palavras-chave para detecção de sentimento e emoções
@@ -347,12 +609,11 @@ export class AdvancedNLPProcessor {
     // Categorias e palavras-chave relacionadas
     const topicCategories = {
       'Tecnologia': ['computador', 'software', 'internet', 'aplicativo', 'sistema', 'programa', 'dados', 'digital', 'tecnologia', 'IA', 'artificial', 'machine learning'],
+      'Matemática': ['calcular', 'somar', 'subtrair', 'multiplicar', 'dividir', 'número', 'resultado', 'conta', 'operação', 'matemática'],
       'Business': ['negócio', 'empresa', 'vendas', 'marketing', 'cliente', 'lucro', 'investimento', 'estratégia', 'mercado', 'competição'],
       'Saúde': ['saúde', 'medicina', 'hospital', 'médico', 'doença', 'tratamento', 'sintoma', 'exercício', 'dieta', 'bem-estar'],
       'Educação': ['escola', 'universidade', 'educação', 'ensino', 'aprendizagem', 'professor', 'aluno', 'estudo', 'curso', 'conhecimento'],
-      'Entretenimento': ['filme', 'música', 'jogo', 'esporte', 'diversão', 'arte', 'cultura', 'teatro', 'cinema', 'show'],
-      'Viagem': ['viagem', 'turismo', 'hotel', 'avião', 'férias', 'destino', 'país', 'cidade', 'cultura', 'aventura'],
-      'Food': ['comida', 'restaurante', 'receita', 'culinária', 'sabor', 'ingrediente', 'cozinha', 'jantar', 'almoço', 'café']
+      'Entretenimento': ['filme', 'música', 'jogo', 'esporte', 'diversão', 'arte', 'cultura', 'teatro', 'cinema', 'show']
     };
 
     const lowerText = text.toLowerCase();
@@ -407,14 +668,16 @@ export class AdvancedNLPProcessor {
   }
 
   /**
-   * Calcula a importância geral de um texto
+   * Calcula a importância geral de um texto - VERSÃO SUPER AVANÇADA
    */
   private calculateImportance(
     text: string, 
     sentiment: SentimentAnalysis, 
     intent: IntentDetection, 
     entities: EntityExtraction[], 
-    topics: TopicExtraction[]
+    topics: TopicExtraction[],
+    implicitQuestion: ImplicitQuestionAnalysis,
+    mathematical: MathematicalAnalysis
   ): ImportanceScore {
     
     const factors = {
@@ -422,16 +685,20 @@ export class AdvancedNLPProcessor {
       hasEntities: Math.min(1, entities.length * 0.2),
       sentimentIntensity: sentiment.intensity,
       textLength: Math.min(1, text.length / 200),
-      contextRelevance: topics.reduce((sum, topic) => sum + topic.relevance, 0) / Math.max(1, topics.length)
+      contextRelevance: topics.reduce((sum, topic) => sum + topic.relevance, 0) / Math.max(1, topics.length),
+      implicitQuestionScore: implicitQuestion.isImplicitQuestion ? implicitQuestion.confidence : 0,
+      mathematicalScore: mathematical.isMathematical ? mathematical.confidence : 0
     };
 
-    // Calcular pontuação geral ponderada
+    // Calcular pontuação geral ponderada - NOVA FÓRMULA
     const overall = (
-      factors.hasQuestion * 0.3 +
-      factors.hasEntities * 0.2 +
-      factors.sentimentIntensity * 0.2 +
-      factors.textLength * 0.1 +
-      factors.contextRelevance * 0.2
+      factors.hasQuestion * 0.25 +
+      factors.hasEntities * 0.15 +
+      factors.sentimentIntensity * 0.15 +
+      factors.textLength * 0.05 +
+      factors.contextRelevance * 0.15 +
+      factors.implicitQuestionScore * 0.15 +  // NOVO: peso para perguntas implícitas
+      factors.mathematicalScore * 0.10        // NOVO: peso para matemática
     );
 
     return {
@@ -443,7 +710,7 @@ export class AdvancedNLPProcessor {
   /**
    * Atualiza histórico de conversa
    */
-  private updateHistory(text: string, analysis: NLPAnalysis): void {
+  private updateHistory(text: string, analysis: SuperNLPAnalysis): void {
     this.conversationHistory.push(text);
     this.sentimentHistory.push(analysis.sentiment);
     this.topicHistory.push(...analysis.topics);
@@ -565,25 +832,41 @@ export class AdvancedNLPProcessor {
 }
 
 // Instância singleton para uso global
-export const nlpProcessor = new AdvancedNLPProcessor();
+export const nlpProcessor = new SuperAdvancedNLPProcessor();
+
+// Compatibilidade com versão anterior
+export type NLPAnalysis = SuperNLPAnalysis;
 
 /**
- * Função utilitária para análise rápida
+ * Função utilitária para análise super rápida e inteligente
  */
 export async function quickAnalyze(text: string): Promise<{
   shouldRespond: boolean;
   priority: 'high' | 'medium' | 'low';
   summary: string;
+  isImplicitQuestion: boolean;
+  isMathematical: boolean;
+  confidence: number;
 }> {
   const analysis = await nlpProcessor.analyzeText(text);
   
-  const shouldRespond = analysis.intent.requiresResponse || analysis.importance.overall > 0.6;
+  const shouldRespond = analysis.intent.requiresResponse || 
+                       analysis.importance.overall > 0.6 ||
+                       analysis.implicitQuestion.needsResponse ||
+                       analysis.mathematical.isMathematical;
   
-  const summary = `${analysis.intent.primary} (${Math.round(analysis.importance.overall * 100)}% importante) - ${analysis.sentiment.polarity}`;
+  const summary = `${analysis.intent.primary} (${Math.round(analysis.importance.overall * 100)}% importante) - ${analysis.sentiment.polarity}${
+    analysis.implicitQuestion.isImplicitQuestion ? ' - Pergunta Implícita' : ''
+  }${
+    analysis.mathematical.isMathematical ? ' - Matemático' : ''
+  }`;
   
   return {
     shouldRespond,
     priority: analysis.intent.priority,
-    summary
+    summary,
+    isImplicitQuestion: analysis.implicitQuestion.isImplicitQuestion,
+    isMathematical: analysis.mathematical.isMathematical,
+    confidence: Math.max(analysis.intent.confidence, analysis.implicitQuestion.confidence, analysis.mathematical.confidence)
   };
 }

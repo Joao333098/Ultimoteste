@@ -1,3 +1,4 @@
+
 /**
  * Backend NLP Services para análise avançada
  * Integra com GLM-4 para análise inteligente
@@ -58,6 +59,212 @@ export interface AdvancedAnalysisResult {
   contextAware: boolean;
   reasoning: string;
   additionalInsights: string[];
+}
+
+// Análise super avançada de intenções - detecta perguntas implícitas
+export async function detectSuperAdvancedIntent(text: string, context?: string[]): Promise<{
+  isQuestion: boolean;
+  isImplicitQuestion: boolean;
+  isMathematical: boolean;
+  isRequestForAction: boolean;
+  isRequestForExplanation: boolean;
+  needsResponse: boolean;
+  confidence: number;
+  questionType: string;
+  reasoning: string;
+  detectedPatterns: string[];
+}> {
+  try {
+    const contextInfo = context && context.length > 0 
+      ? `\n\nCONTEXTO ANTERIOR:\n${context.slice(-3).join('\n')}`
+      : '';
+
+    const prompt = `Você é um especialista em análise de linguagem natural. Analise o seguinte texto para detectar se há uma pergunta implícita, solicitação matemática, ou necessidade de resposta, MESMO QUE NÃO PAREÇA UMA PERGUNTA TRADICIONAL.
+
+TEXTO: "${text}"${contextInfo}
+
+Detecte especialmente:
+1. Expressões matemáticas ou numéricas que precisam de cálculo
+2. Frases que implicam dúvida ou necessidade de esclarecimento
+3. Solicitações indiretas de informação
+4. Comentários que esperam resposta ou confirmação
+5. Declarações que na verdade são perguntas disfarçadas
+6. Expressões como "não sei", "talvez", "será que", "acho que"
+7. Números com operações matemáticas (soma, subtração, etc.)
+8. Pedidos de explicação implícitos
+
+Exemplos de perguntas implícitas:
+- "não sei se 2+2 é 4" (pergunta matemática implícita)
+- "talvez isso seja correto" (dúvida, precisa confirmação)
+- "acho que não entendi" (pedido de explicação)
+- "será que isso funciona assim" (pergunta disfarçada)
+- "quanto é 10 vezes 5" (pergunta matemática direta)
+- "não sei como fazer isso" (pedido de ajuda implícito)
+
+Responda em formato JSON:
+{
+  "isQuestion": true,
+  "isImplicitQuestion": true,
+  "isMathematical": false,
+  "isRequestForAction": false,
+  "isRequestForExplanation": true,
+  "needsResponse": true,
+  "confidence": 0.9,
+  "questionType": "implicit_doubt",
+  "reasoning": "Explicação detalhada",
+  "detectedPatterns": ["padrão1", "padrão2"]
+}`;
+
+    const responseText = await callGLM4API(prompt, {
+      temperature: 0.2,
+      max_tokens: 600
+    });
+
+    try {
+      const parsed = JSON.parse(responseText);
+      return {
+        isQuestion: Boolean(parsed.isQuestion),
+        isImplicitQuestion: Boolean(parsed.isImplicitQuestion),
+        isMathematical: Boolean(parsed.isMathematical),
+        isRequestForAction: Boolean(parsed.isRequestForAction),
+        isRequestForExplanation: Boolean(parsed.isRequestForExplanation),
+        needsResponse: Boolean(parsed.needsResponse),
+        confidence: Math.max(0, Math.min(1, parsed.confidence || 0.7)),
+        questionType: parsed.questionType || 'unknown',
+        reasoning: parsed.reasoning || "Análise de intenção super avançada",
+        detectedPatterns: Array.isArray(parsed.detectedPatterns) ? parsed.detectedPatterns : []
+      };
+    } catch (parseError) {
+      console.error('Erro ao parsear resposta de intenção super avançada:', parseError);
+      
+      // Fallback: análise básica local
+      const basicAnalysis = analyzeBasicPatterns(text);
+      return basicAnalysis;
+    }
+  } catch (error) {
+    console.error('Erro na detecção de intenção super avançada:', error);
+    
+    // Fallback: análise básica local
+    const basicAnalysis = analyzeBasicPatterns(text);
+    return basicAnalysis;
+  }
+}
+
+// Análise básica de padrões como fallback
+function analyzeBasicPatterns(text: string): {
+  isQuestion: boolean;
+  isImplicitQuestion: boolean;
+  isMathematical: boolean;
+  isRequestForAction: boolean;
+  isRequestForExplanation: boolean;
+  needsResponse: boolean;
+  confidence: number;
+  questionType: string;
+  reasoning: string;
+  detectedPatterns: string[];
+} {
+  const lowerText = text.toLowerCase().trim();
+  const detectedPatterns: string[] = [];
+  let isQuestion = false;
+  let isImplicitQuestion = false;
+  let isMathematical = false;
+  let isRequestForAction = false;
+  let isRequestForExplanation = false;
+  let needsResponse = false;
+  let questionType = 'statement';
+  let confidence = 0.5;
+
+  // Padrões matemáticos
+  const mathPatterns = [
+    /\d+\s*[+\-*/÷×]\s*\d+/,
+    /\b(quanto é|qual é o resultado|calcule|some|subtraia|multiplique|divida)\b/i,
+    /\b(mais|menos|vezes|dividido)\b.*\d/i,
+    /\d+.*\b(mais|menos|vezes|dividido|por)\b.*\d/i
+  ];
+
+  if (mathPatterns.some(pattern => pattern.test(text))) {
+    isMathematical = true;
+    isQuestion = true;
+    needsResponse = true;
+    questionType = 'mathematical';
+    confidence = 0.9;
+    detectedPatterns.push('mathematical_expression');
+  }
+
+  // Padrões de dúvida implícita
+  const doubtPatterns = [
+    /\b(não sei|nao sei|talvez|será que|acho que|pode ser|deve ser)\b/i,
+    /\b(tenho dúvida|não tenho certeza|não entendi|não compreendi)\b/i,
+    /\b(como assim|o que significa|que quer dizer)\b/i
+  ];
+
+  if (doubtPatterns.some(pattern => pattern.test(text))) {
+    isImplicitQuestion = true;
+    isQuestion = true;
+    needsResponse = true;
+    isRequestForExplanation = true;
+    questionType = 'implicit_doubt';
+    confidence = Math.max(confidence, 0.8);
+    detectedPatterns.push('doubt_expression');
+  }
+
+  // Padrões de solicitação de ação
+  const actionPatterns = [
+    /\b(me ajude|preciso|quero|gostaria|poderia)\b/i,
+    /\b(faça|execute|realize|crie|gere)\b/i,
+    /\b(como faço|como fazer|me ensina|me mostra)\b/i
+  ];
+
+  if (actionPatterns.some(pattern => pattern.test(text))) {
+    isRequestForAction = true;
+    isQuestion = true;
+    needsResponse = true;
+    questionType = 'action_request';
+    confidence = Math.max(confidence, 0.85);
+    detectedPatterns.push('action_request');
+  }
+
+  // Padrões de pergunta tradicional
+  const traditionalQuestionPatterns = [
+    /[?¿]/,
+    /^(que|what|who|where|when|why|how|como|onde|quando|por que|qual|quem|o que)/i
+  ];
+
+  if (traditionalQuestionPatterns.some(pattern => pattern.test(text))) {
+    isQuestion = true;
+    needsResponse = true;
+    questionType = 'traditional_question';
+    confidence = Math.max(confidence, 0.95);
+    detectedPatterns.push('traditional_question');
+  }
+
+  // Padrões de solicitação de explicação
+  const explanationPatterns = [
+    /\b(explique|esclareça|detalhe|conte mais sobre|fale sobre)\b/i,
+    /\b(o que é|como funciona|por que acontece)\b/i
+  ];
+
+  if (explanationPatterns.some(pattern => pattern.test(text))) {
+    isRequestForExplanation = true;
+    isQuestion = true;
+    needsResponse = true;
+    questionType = 'explanation_request';
+    confidence = Math.max(confidence, 0.8);
+    detectedPatterns.push('explanation_request');
+  }
+
+  return {
+    isQuestion,
+    isImplicitQuestion,
+    isMathematical,
+    isRequestForAction,
+    isRequestForExplanation,
+    needsResponse,
+    confidence,
+    questionType,
+    reasoning: `Análise local - Padrões detectados: ${detectedPatterns.join(', ')}`,
+    detectedPatterns
+  };
 }
 
 // Análise avançada de sentimento com GLM-4
@@ -292,7 +499,7 @@ Responda em formato JSON:
   }
 }
 
-// Análise contextual avançada
+// Análise contextual avançada - FUNÇÃO PRINCIPAL CORRIGIDA
 export async function analyzeAdvancedContent(
   transcription: string,
   question: string,

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTranscriptionSessionSchema, insertAiAnalysisSchema } from "@shared/schema";
 import { analyzeTranscriptionContent, generateSummary, detectLanguageFromText, enhanceTranscriptionText, analyzeSentiment, translateText } from "./services/gemini";
-import { analyzeAdvancedSentiment, detectAdvancedIntent, extractAdvancedEntities, analyzeAdvancedContent, extractAdvancedTopics } from "./services/advanced-nlp-backend";
+import { analyzeAdvancedSentiment, detectAdvancedIntent, extractAdvancedEntities, analyzeAdvancedContent, extractAdvancedTopics, detectSuperAdvancedIntent } from "./services/advanced-nlp-backend";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -175,26 +175,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ========== ROTAS AVANÇADAS DE NLP ==========
 
-  // Análise avançada com NLP completo
-  app.post("/api/ai/analyze-advanced", async (req, res) => {
+  // Análise super avançada de intenção (detecta perguntas implícitas)
+  app.post("/api/ai/super-intent", async (req, res) => {
     try {
-      const { transcription, question, nlpAnalysis, context, responseType } = req.body;
+      const { text, context } = req.body;
 
-      if (!transcription || !question) {
-        return res.status(400).json({ message: "Transcrição e pergunta são obrigatórias" });
+      if (!text) {
+        return res.status(400).json({ message: "Texto é obrigatório" });
       }
 
-      const analysis = await analyzeAdvancedContent(
-        transcription, 
-        question, 
-        nlpAnalysis, 
-        context, 
-        responseType || 'answer'
-      );
-      res.json(analysis);
+      const superIntent = await detectSuperAdvancedIntent(text, context);
+      res.json(superIntent);
     } catch (error) {
-      console.error('Erro na análise avançada:', error);
-      const message = error instanceof Error ? error.message : "Falha na análise avançada de IA";
+      console.error('Erro na detecção super avançada de intenção:', error);
+      const message = error instanceof Error ? error.message : "Falha na detecção super avançada de intenção";
       res.status(500).json({ message });
     }
   });
@@ -268,6 +262,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Erro na extração de tópicos avançada:', error);
       const message = error instanceof Error ? error.message : "Falha na extração de tópicos avançada";
       res.status(500).json({ message });
+    }
+  });
+
+  // Análise avançada de conteúdo - ENDPOINT PRINCIPAL CORRIGIDO
+  app.post("/api/ai/analyze-advanced", async (req, res) => {
+    try {
+      const { transcription, question, nlpAnalysis, context, responseType } = req.body;
+
+      if (!transcription || !question) {
+        return res.status(400).json({ message: "Transcrição e pergunta são obrigatórias" });
+      }
+
+      console.log(`🧠 Análise avançada solicitada para: "${question}"`);
+      console.log(`📝 Transcrição: "${transcription.substring(0, 100)}..."`);
+
+      const analysis = await analyzeAdvancedContent(
+        transcription,
+        question,
+        nlpAnalysis,
+        context,
+        responseType || 'answer'
+      );
+
+      console.log(`✅ Análise concluída com confiança: ${Math.round(analysis.confidence * 100)}%`);
+      res.json(analysis);
+    } catch (error) {
+      console.error('Erro na análise avançada:', error);
+      const message = error instanceof Error ? error.message : "Falha na análise avançada";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Analyze transcription content - endpoint existente mantido para compatibilidade
+  app.post("/api/ai/analyze", async (req, res) => {
+    try {
+      const { transcription, question } = req.body;
+
+      if (!transcription || !question) {
+        return res.status(400).json({ message: "Transcrição e pergunta são obrigatórias" });
+      }
+
+      const analysis = await analyzeTranscriptionContent(transcription, question);
+      res.json(analysis);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha na análise de IA";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Generate summary
+  app.post("/api/ai/summary", async (req, res) => {
+    try {
+      const { transcription } = req.body;
+
+      if (!transcription) {
+        return res.status(400).json({ message: "Transcrição é obrigatória" });
+      }
+
+      const summary = await generateSummary(transcription);
+      res.json({ summary });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao gerar resumo";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Detect language with alternatives and context
+  app.post("/api/ai/detect-language", async (req, res) => {
+    try {
+      const { text, alternatives, context } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ message: "Texto é obrigatório" });
+      }
+
+      console.log(`🎯 Detecção solicitada para: "${text.substring(0, 50)}..."`);
+      console.log(`📋 Alternativas:`, alternatives?.length || 0);
+      console.log(`🎚️ Contexto:`, context);
+
+      const detection = await detectLanguageFromText(text, alternatives, context);
+      res.json(detection);
+    } catch (error) {
+      console.error('Erro na detecção:', error);
+      res.status(500).json({ message: "Falha na detecção de idioma" });
     }
   });
 
