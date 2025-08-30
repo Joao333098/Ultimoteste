@@ -1,5 +1,5 @@
  import React, { useState, useEffect, useCallback } from "react";
- import { Copy, Download, Maximize, Trash2, Brain, Sparkles, Bot, Zap, Heart, FileText, Tag, Send } from "lucide-react";
+ import { Copy, Download, Maximize, Trash2, Brain, Sparkles, Bot, Zap, Heart, FileText, Tag, Send, Search, X, History, TrendingUp } from "lucide-react";
  import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,12 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
   const [lastAnalyzedText, setLastAnalyzedText] = useState("");
   const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
+  
+  // Estados para busca
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
    // Hook de IA avançada
   const { analyzeAdvanced, isAnalyzing } = useAdvancedAiAnalysis({
@@ -431,6 +437,55 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      });
    };
 
+   // Função de busca inteligente
+   const handleSearch = (query?: string) => {
+     const searchTerm = query || searchQuery;
+     if (!searchTerm.trim()) return;
+
+     setIsSearching(true);
+
+     // Busca simples nos blocos de texto
+     const textMatches = sentenceBlocks
+       .filter(block => 
+         block.originalText.toLowerCase().includes(searchTerm.toLowerCase())
+       )
+       .map(block => ({
+         type: 'match',
+         text: block.originalText,
+         timestamp: block.timestamp,
+         highlightedText: block.originalText.replace(
+           new RegExp(searchTerm, 'gi'),
+           (match) => `**${match}**`
+         )
+       }));
+
+     // Se parece uma pergunta, fazer análise com IA
+     if (searchTerm.includes('?') || searchTerm.split(' ').length > 3) {
+       const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ');
+       analyzeAdvanced({
+         transcription: fullTranscript,
+         question: `Busca: "${searchTerm}" - Encontre informações relevantes e responda de forma clara.`,
+         useContext: true
+       });
+
+       // Simular resposta da IA para busca
+       setTimeout(() => {
+         setSearchResults([
+           {
+             type: 'ai',
+             answer: `Analisando "${searchTerm}" no conteúdo...`,
+             relevantBlocks: textMatches.slice(0, 3).map(m => m.text)
+           },
+           ...textMatches
+         ]);
+         setIsSearching(false);
+       }, 1500);
+     } else {
+       setSearchResults(textMatches);
+       setIsSearching(false);
+     }
+   };
+
    return (
      <div>
        <div className="flex items-center justify-between mb-6">
@@ -455,6 +510,17 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
            </div>
          </div>
          <div className="flex items-center space-x-3">
+           {/* Novo botão de busca */}
+           <Button
+             onClick={() => setShowSearchModal(true)}
+             variant="ghost"
+             size="sm"
+             disabled={sentenceBlocks.length === 0}
+             className="text-white hover:bg-blue-500/20 hover:scale-110 transition-all duration-300"
+             title="Buscar no conteúdo"
+           >
+             <Search className="w-4 h-4" />
+           </Button>
            <Button
              onClick={clearAll}
              variant="ghost"
@@ -821,6 +887,165 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
            )}
          </div>
        </div>
+
+       {/* Modal de Busca Inteligente */}
+       {showSearchModal && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+           <div className="w-full max-w-3xl mx-4">
+             <div className="glass-card rounded-3xl shadow-2xl border-2 border-white/20 overflow-hidden">
+               {/* Header do Modal */}
+               <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-6 border-b border-white/20">
+                 <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                       <Search className="w-5 h-5 text-white" />
+                     </div>
+                     <div>
+                       <h3 className="text-xl font-bold text-white">Busca Inteligente com IA</h3>
+                       <p className="text-xs text-white/70 mt-1">Encontre informações específicas na transcrição</p>
+                     </div>
+                   </div>
+                   <Button
+                     onClick={() => {
+                       setShowSearchModal(false);
+                       setSearchQuery("");
+                       setSearchResults([]);
+                     }}
+                     variant="ghost"
+                     size="sm"
+                     className="text-white hover:bg-white/20"
+                   >
+                     <X className="w-5 h-5" />
+                   </Button>
+                 </div>
+               </div>
+
+               {/* Corpo do Modal */}
+               <div className="p-6">
+                 {/* Campo de Busca */}
+                 <div className="mb-6">
+                   <div className="relative">
+                     <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
+                     <input
+                       type="text"
+                       value={searchQuery}
+                       onChange={(e) => setSearchQuery(e.target.value)}
+                       onKeyPress={(e) => {
+                         if (e.key === 'Enter' && searchQuery.trim()) {
+                           handleSearch();
+                         }
+                       }}
+                       placeholder="Digite sua busca ou faça uma pergunta..."
+                       className="w-full pl-12 pr-32 py-4 bg-white/10 border-2 border-white/30 rounded-2xl text-white placeholder:text-white/50 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all text-lg"
+                       autoFocus
+                     />
+                     <Button
+                       onClick={handleSearch}
+                       disabled={!searchQuery.trim() || isSearching}
+                       className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6"
+                     >
+                       {isSearching ? (
+                         <div className="flex items-center gap-2">
+                           <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                           <span>Buscando...</span>
+                         </div>
+                       ) : (
+                         "Buscar"
+                       )}
+                     </Button>
+                   </div>
+                 </div>
+
+                 {/* Sugestões de Busca */}
+                 {searchResults.length === 0 && !isSearching && (
+                   <div className="mb-6">
+                     <p className="text-white/70 text-sm mb-3">Sugestões de busca:</p>
+                     <div className="flex flex-wrap gap-2">
+                       {[
+                         "Principais tópicos",
+                         "Perguntas mencionadas",
+                         "Informações importantes",
+                         "Datas e números",
+                         "Nomes citados"
+                       ].map((suggestion) => (
+                         <button
+                           key={suggestion}
+                           onClick={() => {
+                             setSearchQuery(suggestion);
+                             handleSearch(suggestion);
+                           }}
+                           className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/30 rounded-full text-sm text-white transition-all"
+                         >
+                           <TrendingUp className="w-3 h-3 inline mr-2" />
+                           {suggestion}
+                         </button>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+
+                 {/* Resultados da Busca */}
+                 {searchResults.length > 0 && (
+                   <div className="space-y-4 max-h-96 overflow-y-auto">
+                     <p className="text-white/70 text-sm mb-3">
+                       {searchResults.length} resultado{searchResults.length > 1 ? 's' : ''} encontrado{searchResults.length > 1 ? 's' : ''}:
+                     </p>
+                     {searchResults.map((result, index) => (
+                       <div
+                         key={index}
+                         className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-gray-200/50 hover:shadow-xl transition-all"
+                       >
+                         {result.type === 'match' ? (
+                           <>
+                             <div className="flex items-center gap-2 mb-2">
+                               <Badge className="bg-blue-100 text-blue-700">
+                                 Correspondência
+                               </Badge>
+                               <span className="text-xs text-gray-500">{result.timestamp}</span>
+                             </div>
+                             <p className="text-gray-800">
+                               {result.highlightedText || result.text}
+                             </p>
+                           </>
+                         ) : (
+                           <>
+                             <div className="flex items-center gap-2 mb-2">
+                               <Badge className="bg-purple-100 text-purple-700">
+                                 Resposta IA
+                               </Badge>
+                             </div>
+                             <p className="text-gray-800">{result.answer}</p>
+                             {result.relevantBlocks && (
+                               <div className="mt-3 pt-3 border-t border-gray-200">
+                                 <p className="text-xs text-gray-500 mb-2">Trechos relevantes:</p>
+                                 {result.relevantBlocks.map((block: any, idx: number) => (
+                                   <div key={idx} className="text-sm text-gray-600 mb-1">
+                                     • {block}
+                                   </div>
+                                 ))}
+                               </div>
+                             )}
+                           </>
+                         )}
+                       </div>
+                     ))}
+                   </div>
+                 )}
+
+                 {/* Histórico de Buscas */}
+                 {searchResults.length === 0 && !isSearching && (
+                   <div className="mt-6 pt-6 border-t border-white/20">
+                     <div className="flex items-center gap-2 text-white/70 text-sm">
+                       <History className="w-4 h-4" />
+                       <span>Dica: Use perguntas completas para respostas mais precisas da IA</span>
+                     </div>
+                   </div>
+                 )}
+               </div>
+             </div>
+           </div>
+         </div>
+       )}
      </div>
    );
  }
