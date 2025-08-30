@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Brain, Sparkles, Calculator, HelpCircle } from "lucide-react";
-import { useAdvancedAIAnalysis } from "@/hooks/use-advanced-ai-analysis";
+import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
 import { useToast } from "@/hooks/use-toast";
 import { quickAnalyze } from "@/lib/advanced-nlp";
 
@@ -29,11 +29,11 @@ export default function TranscriptionDisplay({
   const [lastAnalyzedText, setLastAnalyzedText] = useState("");
   const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
 
-  const { analyzeAdvanced, isAnalyzing } = useAdvancedAIAnalysis({
-    onSuccess: (result) => {
+  const { analyzeAdvanced, isAnalyzing } = useAdvancedAiAnalysis({
+    onSuccess: (result: any) => {
       console.log("✅ Análise concluída:", result);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("❌ Erro na análise:", error);
     }
   });
