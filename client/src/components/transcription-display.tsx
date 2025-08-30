@@ -726,8 +726,8 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
          )}
        </div>
 
-       {/* Seção de Análise Inteligente com GLM-4 - OCULTA */}
-       <div className="mt-8 hidden">
+       {/* Seção de Análise Inteligente com GLM-4 */}
+       <div className="mt-8">
          <div className="flex items-center justify-between mb-4">
            <h3 className="text-xl font-bold text-white drop-shadow-lg flex items-center gap-2">
              <Brain className="w-5 h-5 text-blue-300" />
@@ -798,6 +798,42 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                >
                  <Tag className="w-4 h-4 mr-2" />
                  Palavras-chave
+               </Button>
+
+               <Button
+                 onClick={() => {
+                   const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ') + (interimText ? '. ' + interimText : '');
+                   analyzeAdvanced({
+                     transcription: fullTranscript,
+                     question: "Crie uma frase curta e concisa que capture a essência desta conversa",
+                     useContext: true
+                   });
+                 }}
+                 variant="outline"
+                 size="sm"
+                 className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                 disabled={sentenceBlocks.length === 0 || isAnalyzing}
+               >
+                 <Sparkles className="w-4 h-4 mr-2" />
+                 Frase Curta
+               </Button>
+
+               <Button
+                 onClick={() => {
+                   const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ') + (interimText ? '. ' + interimText : '');
+                   analyzeAdvanced({
+                     transcription: fullTranscript,
+                     question: "Crie uma frase curta e natural como se fosse dita por uma pessoa real sobre o assunto desta conversa",
+                     useContext: true
+                   });
+                 }}
+                 variant="outline"
+                 size="sm"
+                 className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+                 disabled={sentenceBlocks.length === 0 || isAnalyzing}
+               >
+                 <Brain className="w-4 h-4 mr-2" />
+                 Frase Humana
                </Button>
              </div>
            </div>
