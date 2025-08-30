@@ -438,9 +438,9 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
    };
 
    // Função de busca inteligente
-   const handleSearch = (query?: string) => {
-     const searchTerm = query || searchQuery;
-     if (!searchTerm.trim()) return;
+   const handleSearch = () => {
+     const searchTerm = searchQuery;
+     if (!searchTerm || !searchTerm.trim()) return;
 
      setIsSearching(true);
 
@@ -726,8 +726,8 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
          )}
        </div>
 
-       {/* Seção de Análise Inteligente com GLM-4 */}
-       <div className="mt-8">
+       {/* Seção de Análise Inteligente com GLM-4 - OCULTA */}
+       <div className="mt-8 hidden">
          <div className="flex items-center justify-between mb-4">
            <h3 className="text-xl font-bold text-white drop-shadow-lg flex items-center gap-2">
              <Brain className="w-5 h-5 text-blue-300" />
@@ -972,7 +972,7 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                            key={suggestion}
                            onClick={() => {
                              setSearchQuery(suggestion);
-                             handleSearch(suggestion);
+                             handleSearch();
                            }}
                            className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/30 rounded-full text-sm text-white transition-all"
                          >

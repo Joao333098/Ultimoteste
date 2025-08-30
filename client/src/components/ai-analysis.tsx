@@ -139,8 +139,8 @@ export default function AiAnalysis({ transcript, currentSessionId }: AiAnalysisP
         </div>
       )}
 
-      {/* AI Question Interface */}
-      <div className="glass-card rounded-3xl shadow-large p-6 border-white/20 hover-lift">
+      {/* AI Question Interface - OCULTA */}
+      <div className="glass-card rounded-3xl shadow-large p-6 border-white/20 hover-lift hidden">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center animate-glow">
             <Brain className="text-white text-sm" />
@@ -229,8 +229,8 @@ export default function AiAnalysis({ transcript, currentSessionId }: AiAnalysisP
         </div>
       </div>
 
-      {/* Content Search */}
-      <div className="glass-card rounded-3xl shadow-large p-6 border-white/20 hover-lift">
+      {/* Content Search - OCULTA */}
+      <div className="glass-card rounded-3xl shadow-large p-6 border-white/20 hover-lift hidden">
         <div className="flex items-center space-x-3 mb-6">
           <div className="w-8 h-8 bg-gradient-accent rounded-lg flex items-center justify-center">
             <Search className="text-white text-sm" />
