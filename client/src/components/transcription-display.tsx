@@ -53,27 +53,37 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
    // Hook de IA avançada
   const { analyzeAdvanced, isAnalyzing } = useAdvancedAiAnalysis({
     onSuccess: (result: any) => {
-      // Atualizar resultado geral
+      // SEMPRE atualizar resultado geral
       setAnalysisResult(result);
       
-      // Atualizar bloco específico se foi análise de clique
-      setSentenceBlocks(prev => prev.map(block => 
-        block.isAnalyzing 
-          ? { ...block, isAnalyzing: false, aiResponse: result.answer || result.response, hasAiAnalysis: true }
-          : block
-      ));
-      
-      toast({
-        title: "Análise IA Concluída",
-        description: "Resposta gerada com sucesso!",
-      });
+      // SÓ atualizar bloco específico se NÃO for análise automática
+      if (!isAutoAnalyzing) {
+        setSentenceBlocks(prev => prev.map(block => 
+          block.isAnalyzing 
+            ? { ...block, isAnalyzing: false, aiResponse: result.answer || result.response, hasAiAnalysis: true }
+            : block
+        ));
+        
+        toast({
+          title: "Análise IA Concluída",
+          description: "Clique na mensagem para ver a resposta!",
+        });
+      } else {
+        // Para análise automática, apenas notificar que foi processada
+        toast({
+          title: "IA Automática",
+          description: "Análise concluída! Veja na seção abaixo.",
+        });
+      }
     },
     onError: (error: any) => {
-      setSentenceBlocks(prev => prev.map(block => 
-        block.isAnalyzing 
-          ? { ...block, isAnalyzing: false, aiResponse: "Erro na análise IA", hasAiAnalysis: false }
-          : block
-      ));
+      if (!isAutoAnalyzing) {
+        setSentenceBlocks(prev => prev.map(block => 
+          block.isAnalyzing 
+            ? { ...block, isAnalyzing: false, aiResponse: "Erro na análise IA", hasAiAnalysis: false }
+            : block
+        ));
+      }
       
       toast({
         title: "Erro na Análise IA",
@@ -196,8 +206,8 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      setSentenceBlocks(prev => {
        const updated = [...prev, ...newBlocks];
        
-       // Análise automática da IA se ativada - detecta QUALQUER frase nova
-       if (autoAiEnabled && newBlocks.length > 0) {
+       // Análise automática da IA se ativada - SÓ para perguntas claras
+       if (autoAiEnabled && newBlocks.length > 0 && !isAutoAnalyzing) {
          const lastBlock = newBlocks[newBlocks.length - 1];
          const text = lastBlock.originalText.toLowerCase();
          
@@ -205,17 +215,15 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
          console.log("🔍 É pergunta?", detectQuestion(text));
          console.log("🔍 É matemática?", detectMath(text));
          
-         // Detecção mais ampla - qualquer texto que pareça interativo
-         const shouldAnalyze = 
-           detectQuestion(text) || 
-           detectMath(text) ||
-           text.length > 10; // Frases longas também merecem análise
+         // Detecção mais específica - só perguntas e matemática claras
+         const isQuestion = detectQuestion(text);
+         const isMath = detectMath(text);
          
-         if (shouldAnalyze) {
+         if (isQuestion || isMath) {
            console.log("✅ Iniciando análise automática");
-           setTimeout(() => handleAutoAiAnalysis(lastBlock.originalText), 1000);
+           setTimeout(() => handleAutoAiAnalysis(lastBlock.originalText), 800);
          } else {
-           console.log("❌ Não iniciando análise automática");
+           console.log("❌ Não é pergunta/matemática, pulando análise automática");
          }
        }
        
@@ -269,9 +277,9 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      return mathPatterns.some(pattern => pattern.test(text));
    }, []);
 
-   // Análise automática da IA
+   // Análise automática da IA - versão que NÃO interfere nos blocos
    const handleAutoAiAnalysis = useCallback(async (text: string) => {
-     if (isAutoAnalyzing) return;
+     if (isAutoAnalyzing || isAnalyzing) return;
      
      setIsAutoAnalyzing(true);
      console.log("🤖 Análise IA automática iniciada para:", text.substring(0, 50));
@@ -279,19 +287,25 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      try {
        const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ') + '. ' + text;
        
+       // Análise automática vai para o resultado geral, não modifica os blocos
        await analyzeAdvanced({
          transcription: fullTranscript,
          question: detectQuestion(text) 
-           ? `Responda esta pergunta baseada no contexto: "${text}"`
-           : `Analise e descreva esta informação: "${text}"`,
+           ? `Pergunta: "${text}" - Responda de forma clara e direta.`
+           : `Conteúdo: "${text}" - Analise brevemente o que foi dito.`,
          useContext: true
        });
      } catch (error) {
        console.error("Erro na análise IA automática:", error);
+       toast({
+         title: "Erro na Análise Automática",
+         description: "Falha na análise da IA",
+         variant: "destructive",
+       });
      } finally {
        setIsAutoAnalyzing(false);
      }
-   }, [analyzeAdvanced, sentenceBlocks, isAutoAnalyzing, detectQuestion]);
+   }, [analyzeAdvanced, sentenceBlocks, isAutoAnalyzing, isAnalyzing, detectQuestion]);
 
    // Função específica para análise IA
    const handleAiClick = (blockId: string) => {
@@ -335,6 +349,26 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      const block = sentenceBlocks.find(b => b.id === blockId);
      if (!block) return;
 
+     // Verificar se tradução está habilitada
+     if (!autoTranslationEnabled) {
+       toast({
+         title: "Tradução desativada",
+         description: "Ative a tradução automática primeiro",
+         variant: "default",
+       });
+       return;
+     }
+
+     // Auto-selecionar idioma se não definido
+     let targetLang = translationTargetLanguage;
+     if (!targetLang || targetLang === 'auto') {
+       targetLang = 'en-US'; // padrão para inglês
+       toast({
+         title: "Idioma definido automaticamente",
+         description: "Traduzindo para inglês (EN-US)",
+       });
+     }
+
      // Se já tem tradução, alternar exibição
      if (block.translatedText) {
        setSentenceBlocks(prev => prev.map(b => 
@@ -353,9 +387,10 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
            : b
        ));
 
+       console.log("🌐 Iniciando tradução manual:", block.originalText, "->", targetLang);
        translateSentence({ 
          text: block.originalText, 
-         targetLanguage: translationTargetLanguage || 'en' 
+         targetLanguage: targetLang 
        });
      }
    };
@@ -516,8 +551,8 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                        IA
                      </Button>
                      
-                     {/* Botão de Tradução (se ativo) */}
-                     {autoTranslationEnabled && translationTargetLanguage && translationTargetLanguage !== 'auto' && (
+                     {/* Botão de Tradução (sempre visível se ativado) */}
+                     {autoTranslationEnabled && (
                        <Button
                          onClick={(e) => {
                            e.stopPropagation();
