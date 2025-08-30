@@ -55,12 +55,28 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [pendingSearchMatches, setPendingSearchMatches] = useState<any[]>([]);
 
    // Hook de IA avançada
   const { analyzeAdvanced, isAnalyzing } = useAdvancedAiAnalysis({
     onSuccess: (result: any) => {
       // SEMPRE atualizar resultado geral
       setAnalysisResult(result);
+      
+      // Se foi uma busca inteligente
+      if (result.question?.includes('Busca:') && isSearching) {
+        setSearchResults([
+          {
+            type: 'ai',
+            answer: result.answer,
+            relevantBlocks: pendingSearchMatches.slice(0, 3).map((m: any) => m.text)
+          },
+          ...pendingSearchMatches
+        ]);
+        setIsSearching(false);
+        setPendingSearchMatches([]);
+        return;
+      }
       
       // SÓ atualizar bloco específico se NÃO for análise automática
       if (!isAutoAnalyzing) {
@@ -95,6 +111,7 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
         setIsAutoAnalyzing(false);
       }
       
+      setIsSearching(false); // Também resetar busca em caso de erro
       toast({
         title: "Erro na Análise IA",
         description: "Tente novamente em alguns segundos",
@@ -462,25 +479,18 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      // Se parece uma pergunta, fazer análise com IA
      if (searchTerm.includes('?') || searchTerm.split(' ').length > 3) {
        const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ');
+       
+       // Guardar matches para usar quando a IA responder
+       setPendingSearchMatches(textMatches);
+       
+       // Fazer a análise com IA
        analyzeAdvanced({
          transcription: fullTranscript,
          question: `Busca: "${searchTerm}" - Encontre informações relevantes e responda de forma clara.`,
          useContext: true
        });
-
-       // Simular resposta da IA para busca
-       setTimeout(() => {
-         setSearchResults([
-           {
-             type: 'ai',
-             answer: `Analisando "${searchTerm}" no conteúdo...`,
-             relevantBlocks: textMatches.slice(0, 3).map(m => m.text)
-           },
-           ...textMatches
-         ]);
-         setIsSearching(false);
-       }, 1500);
      } else {
+       // Para buscas simples, mostrar apenas matches de texto
        setSearchResults(textMatches);
        setIsSearching(false);
      }
