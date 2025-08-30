@@ -1,5 +1,5 @@
  import React, { useState, useEffect, useCallback } from "react";
- import { Copy, Download, Maximize, Trash2, Brain, Sparkles, Bot, Zap, Heart, FileText, Tag } from "lucide-react";
+ import { Copy, Download, Maximize, Trash2, Brain, Sparkles, Bot, Zap, Heart, FileText, Tag, Send } from "lucide-react";
  import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -732,6 +732,52 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
                >
                  <Tag className="w-4 h-4 mr-2" />
                  Palavras-chave
+               </Button>
+             </div>
+           </div>
+
+           {/* Campo para perguntas personalizadas */}
+           <div className="mb-6">
+             <div className="flex space-x-2">
+               <input
+                 type="text"
+                 value={aiQuestion}
+                 onChange={(e) => setAiQuestion(e.target.value)}
+                 onKeyPress={(e) => {
+                   if (e.key === 'Enter' && aiQuestion.trim() && !isAnalyzing) {
+                     const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ') + (interimText ? '. ' + interimText : '');
+                     analyzeAdvanced({
+                       transcription: fullTranscript,
+                       question: aiQuestion.trim(),
+                       useContext: true
+                     });
+                     setAiQuestion('');
+                   }
+                 }}
+                 placeholder="Faça uma pergunta sobre o conteúdo transcrito..."
+                 className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder:text-white/60 focus:outline-none focus:border-white/50 focus:bg-white/15 transition-all"
+                 disabled={sentenceBlocks.length === 0 || isAnalyzing}
+               />
+               <Button
+                 onClick={() => {
+                   if (aiQuestion.trim() && !isAnalyzing) {
+                     const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ') + (interimText ? '. ' + interimText : '');
+                     analyzeAdvanced({
+                       transcription: fullTranscript,
+                       question: aiQuestion.trim(),
+                       useContext: true
+                     });
+                     setAiQuestion('');
+                   }
+                 }}
+                 disabled={sentenceBlocks.length === 0 || isAnalyzing || !aiQuestion.trim()}
+                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+               >
+                 {isAnalyzing ? (
+                   <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                 ) : (
+                   <Send className="w-4 h-4" />
+                 )}
                </Button>
              </div>
            </div>
