@@ -1,10 +1,10 @@
  import React, { useState, useEffect } from "react";
- import { Copy, Download, Maximize, Trash2, Globe, RotateCcw, Loader2, MessageCircle, Brain, Zap, ZapOff } from "lucide-react";
+ import { Copy, Download, Maximize, Trash2, Globe, RotateCcw, Loader2, MessageCircle, Brain, Zap, ZapOff, Heart, Frown, Smile, AlertCircle, Users, MapPin, Calendar, Tag, TrendingUp, Eye } from "lucide-react";
  import { Button } from "@/components/ui/button";
  import { useToast } from "@/hooks/use-toast";
  import { useMutation } from "@tanstack/react-query";
  import { apiRequest } from "@/lib/queryClient";
-import { useAiAnalysis } from "@/hooks/use-ai-analysis";
+import { useAdvancedAiAnalysis, useSentimentAnalysis, useIntentDetection } from "@/hooks/use-advanced-ai-analysis";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +28,20 @@ import { Textarea } from "@/components/ui/textarea";
    isClickable?: boolean;
    aiResponse?: string;
    isAnalyzing?: boolean;
+   // Novos campos para análise avançada
+   nlpAnalysis?: any;
+   responseType?: 'answer' | 'explanation' | 'clarification' | 'suggestion';
+   confidence?: number;
+   relatedTopics?: string[];
+   reasoning?: string;
+   additionalInsights?: string[];
+   sentiment?: {
+     polarity: 'positive' | 'negative' | 'neutral';
+     intensity: number;
+     emotions: any;
+   };
+   entities?: any[];
+   importance?: number;
  }
 
  export default function TranscriptionDisplay({
@@ -50,8 +64,23 @@ import { Textarea } from "@/components/ui/textarea";
   const [autoResponseEnabled, setAutoResponseEnabled] = useState(false);
   const [selectedSentence, setSelectedSentence] = useState<string>("");
 
-  // Hook da análise inteligente
-  const { mutate: analyzeContent, isPending: isAnalyzing } = useAiAnalysis({
+  // Hooks avançados de análise
+  const { 
+    analyzeAdvanced, 
+    isAnalyzing,
+    analyzeSentiment,
+    isSentimentAnalyzing,
+    detectEntities,
+    isDetectingEntities,
+    analyzeQuick,
+    analyzeConversationContext,
+    analysisHistory,
+    currentContext,
+    clearContext,
+    getImportanceScore,
+    getSentimentHistory
+  } = useAdvancedAiAnalysis({
+    enableRealTimeAnalysis: true,
     onSuccess: (data) => {
       setLastAiResponse(data.answer);
       // Atualizar a sentença com a resposta

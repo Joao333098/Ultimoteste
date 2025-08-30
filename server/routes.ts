@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTranscriptionSessionSchema, insertAiAnalysisSchema } from "@shared/schema";
 import { analyzeTranscriptionContent, generateSummary, detectLanguageFromText, enhanceTranscriptionText, analyzeSentiment, translateText } from "./services/gemini";
+import { analyzeAdvancedSentiment, detectAdvancedIntent, extractAdvancedEntities, analyzeAdvancedContent, extractAdvancedTopics } from "./services/advanced-nlp-backend";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -171,6 +172,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message });
     }
   });
+
+  // ========== ROTAS AVANÇADAS DE NLP ==========
+
+  // Análise avançada com NLP completo
+  app.post("/api/ai/analyze-advanced", async (req, res) => {
+    try {
+      const { transcription, question, nlpAnalysis, context, responseType } = req.body;
+
+      if (!transcription || !question) {
+        return res.status(400).json({ message: "Transcrição e pergunta são obrigatórias" });
+      }
+
+      const analysis = await analyzeAdvancedContent(
+        transcription, 
+        question, 
+        nlpAnalysis, 
+        context, 
+        responseType || 'answer'
+      );
+      res.json(analysis);
+    } catch (error) {
+      console.error('Erro na análise avançada:', error);
+      const message = error instanceof Error ? error.message : "Falha na análise avançada de IA";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Análise avançada de sentimento
+  app.post("/api/ai/sentiment-advanced", async (req, res) => {
+    try {
+      const { text } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ message: "Texto é obrigatório" });
+      }
+
+      const sentiment = await analyzeAdvancedSentiment(text);
+      res.json(sentiment);
+    } catch (error) {
+      console.error('Erro na análise de sentimento avançada:', error);
+      const message = error instanceof Error ? error.message : "Falha na análise de sentimento avançada";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Detecção avançada de intenção
+  app.post("/api/ai/intent-advanced", async (req, res) => {
+    try {
+      const { text, context } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ message: "Texto é obrigatório" });
+      }
+
+      const intent = await detectAdvancedIntent(text, context);
+      res.json(intent);
+    } catch (error) {
+      console.error('Erro na detecção de intenção avançada:', error);
+      const message = error instanceof Error ? error.message : "Falha na detecção de intenção avançada";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Extração avançada de entidades
+  app.post("/api/ai/entities-advanced", async (req, res) => {
+    try {
+      const { text } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ message: "Texto é obrigatório" });
+      }
+
+      const entities = await extractAdvancedEntities(text);
+      res.json(entities);
+    } catch (error) {
+      console.error('Erro na extração de entidades avançada:', error);
+      const message = error instanceof Error ? error.message : "Falha na extração de entidades avançada";
+      res.status(500).json({ message });
+    }
+  });
+
+  // Extração avançada de tópicos
+  app.post("/api/ai/topics-advanced", async (req, res) => {
+    try {
+      const { text } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ message: "Texto é obrigatório" });
+      }
+
+      const topics = await extractAdvancedTopics(text);
+      res.json(topics);
+    } catch (error) {
+      console.error('Erro na extração de tópicos avançada:', error);
+      const message = error instanceof Error ? error.message : "Falha na extração de tópicos avançada";
+      res.status(500).json({ message });
+    }
+  });
+
+  // ========== FIM DAS ROTAS AVANÇADAS ==========
 
 
   // Save AI analysis
