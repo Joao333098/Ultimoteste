@@ -12,6 +12,7 @@ async function callGLM4API(prompt: string, options: {
   max_tokens?: number;
 } = {}): Promise<string> {
   try {
+    console.log('🔧 Fazendo chamada para GLM-4 API...');
     const response = await axios.post(
       config.ai.endpoint,
       {
@@ -32,10 +33,19 @@ async function callGLM4API(prompt: string, options: {
       }
     );
     
+    console.log('✅ Resposta recebida da GLM-4 API');
     return response.data.choices[0].message.content;
   } catch (error: any) {
-    console.error('Erro na API GLM-4:', error.message);
-    throw new Error('Falha na comunicação com a API GLM-4');
+    console.error('❌ Erro na API GLM-4:', error.response?.data || error.message);
+    // Retornar resposta fallback ao invés de falhar
+    return JSON.stringify({
+      answer: "Desculpe, estou com dificuldades técnicas no momento. Tente novamente em alguns segundos.",
+      confidence: 0.3,
+      relatedTopics: [],
+      reasoning: "Erro técnico na API",
+      additionalInsights: [],
+      contextAware: false
+    });
   }
 }
 

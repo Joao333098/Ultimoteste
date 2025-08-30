@@ -169,9 +169,11 @@ import { Textarea } from "@/components/ui/textarea";
         : block
     ));
 
-    // Detectar se é pergunta ou descrição
+    // Detectar se é pergunta ou descrição (incluindo perguntas matemáticas)
     const isQuestion = /[?¿]/.test(sentence) || 
-                      /^(que|what|who|where|when|why|how|como|onde|quando|por que|porque|qual|quem)/i.test(sentence.trim());
+                      /^(que|what|who|where|when|why|how|como|onde|quando|por que|porque|qual|quem|quanto é|quanto vale)/i.test(sentence.trim()) ||
+                      /\d+\s*[+\-*/]\s*\d+/.test(sentence) ||
+                      /\b(mais|menos|vezes|dividido)\b.*\d|\d.*\b(mais|menos|vezes|dividido)\b/i.test(sentence);
     
     const prompt = isQuestion 
       ? `Responda esta pergunta baseada no contexto da transcrição: "${sentence}"`
@@ -189,7 +191,15 @@ import { Textarea } from "@/components/ui/textarea";
     const questionPatterns = [
       /[?¿]/,  // Marcas de interrogação
       /^(que|what|who|where|when|why|how|como|onde|quando|por que|porque|qual|quem|o que|qual é|como é|where is|what is)/i,
-      /\b(pergunta|question|dúvida|doubt)\b/i
+      /\b(pergunta|question|dúvida|doubt)\b/i,
+      // Perguntas matemáticas
+      /\b(quanto é|quanto vale|qual é o resultado|calculate|soma|subtração|multiplicação|divisão)\b/i,
+      // Expressões matemáticas simples
+      /\d+\s*[+\-*/]\s*\d+/,
+      /\bmais\b.*\d|\d.*\bmais\b/i,
+      /\bmenos\b.*\d|\d.*\bmenos\b/i,
+      /\bvezes\b.*\d|\d.*\bvezes\b/i,
+      /\bdividido\b.*\d|\d.*\bdividido\b/i
     ];
     
     return questionPatterns.some(pattern => pattern.test(text));
