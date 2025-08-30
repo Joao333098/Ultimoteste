@@ -45,7 +45,7 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
   
   // Estados para IA avançada
   const [aiQuestion, setAiQuestion] = useState("");
-  const [autoAiEnabled, setAutoAiEnabled] = useState(false);
+  const [autoAiEnabled, setAutoAiEnabled] = useState(true);
   const [lastAnalyzedText, setLastAnalyzedText] = useState("");
   const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -69,7 +69,8 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
           description: "Clique na mensagem para ver a resposta!",
         });
       } else {
-        // Para análise automática, apenas notificar que foi processada
+        // Para análise automática, apenas notificar e RESETAR estado
+        setIsAutoAnalyzing(false);
         toast({
           title: "IA Automática",
           description: "Análise concluída! Veja na seção abaixo.",
@@ -83,6 +84,9 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
             ? { ...block, isAnalyzing: false, aiResponse: "Erro na análise IA", hasAiAnalysis: false }
             : block
         ));
+      } else {
+        // Para análise automática, apenas resetar estado
+        setIsAutoAnalyzing(false);
       }
       
       toast({
@@ -172,7 +176,8 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
    const detectQuestion = useCallback((text: string): boolean => {
      const questionPatterns = [
        /[?¿]/,  // Marcas de interrogação
-       /^(que|what|who|where|when|why|how|como|onde|quando|por que|porque|qual|quem|o que|qual é|como é|where is|what is)/i,
+       /^(que|what|who|where|when|why|how|como|onde|quando|por que|porque|qual|quem)/i,
+       /\b(o que|what)\s+.*\b(acabei de|just|disse|said|falei|spoke|mencionei|mentioned)/i,  // "o que eu acabei de falar"
        /\b(pergunta|question|dúvida|doubt)\b/i,
        // Perguntas matemáticas
        /\b(quanto é|quanto vale|qual é o resultado|calculate|soma|subtração|multiplicação|divisão)\b/i,
@@ -253,7 +258,35 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
        return [...prev, ...newBlocks];
      });
 
-     // Auto IA: DESABILITADA para evitar conflitos com transcrição
+     // Análise automática MELHORADA - só para perguntas claras, sem interferir
+     if (autoAiEnabled && newBlocks.length > 0 && !isAutoAnalyzing) {
+       const lastBlock = newBlocks[newBlocks.length - 1];
+       const text = lastBlock.originalText.toLowerCase();
+       
+       console.log("🔍 Verificando análise automática para:", text);
+       
+       // Detecção melhorada
+       const isQuestion = detectQuestion(text);
+       const isMath = detectMath(text);
+       
+       if (isQuestion || isMath) {
+         console.log("✅ Pergunta detectada automaticamente:", text);
+         setIsAutoAnalyzing(true);
+         
+         // Fazer análise SEM mexer nos blocos
+         setTimeout(() => {
+           const fullContext = sentenceBlocks.map(b => b.originalText).join('. ') + '. ' + lastBlock.originalText;
+           
+           analyzeAdvanced({
+             transcription: fullContext,
+             question: `Pergunta: "${lastBlock.originalText}" - Responda de forma clara e completa.`,
+             useContext: true
+           });
+         }, 800);
+       } else {
+         console.log("❌ Não é pergunta, pulando análise automática");
+       }
+     }
    }, [lastProcessedTranscript, autoAiEnabled, detectQuestion, detectMath]);
 
    // Função específica para análise IA
