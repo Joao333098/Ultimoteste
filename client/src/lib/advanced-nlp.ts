@@ -486,7 +486,7 @@ export class AdvancedNLPProcessor {
    * Resolve referências no texto
    */
   private resolveReferences(text: string, context: string[]): string[] {
-    const references = [];
+    const references: string[] = [];
     const pronouns = ['ele', 'ela', 'isso', 'aquilo', 'that', 'it', 'he', 'she', 'this', 'él', 'ella', 'eso'];
     
     const lowerText = text.toLowerCase();

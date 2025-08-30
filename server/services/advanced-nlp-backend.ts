@@ -3,9 +3,41 @@
  * Integra com GLM-4 para análise inteligente
  */
 
-// Usar cliente GLM-4 interno para simplificar
 import axios from 'axios';
 import { config } from '../config';
+
+// Helper function para fazer requests para GLM-4
+async function callGLM4API(prompt: string, options: {
+  temperature?: number;
+  max_tokens?: number;
+} = {}): Promise<string> {
+  try {
+    const response = await axios.post(
+      config.ai.endpoint,
+      {
+        model: config.ai.model,
+        messages: [{
+          role: "user",
+          content: prompt
+        }],
+        temperature: options.temperature || 0.3,
+        max_tokens: options.max_tokens || 500
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${config.GLM4_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
+    );
+    
+    return response.data.choices[0].message.content;
+  } catch (error: any) {
+    console.error('Erro na API GLM-4:', error.message);
+    throw new Error('Falha na comunicação com a API GLM-4');
+  }
+}
 
 // Interface para resultado de análise avançada
 export interface AdvancedAnalysisResult {
@@ -34,10 +66,6 @@ export async function analyzeAdvancedSentiment(text: string): Promise<{
   explanation: string;
 }> {
   try {
-    // Criar cliente GLM-4 inline para compatibilidade
-    const apiKey = config.GLM4_API_KEY;
-    const endpoint = config.ai.endpoint;
-    
     const prompt = `Analise o sentimento do seguinte texto de forma muito detalhada:
 
 TEXTO: "${text}"
@@ -65,13 +93,13 @@ Responda em formato JSON:
   "explanation": "Explicação detalhada da análise"
 }`;
 
-    const response = await glmClient.sendMessage(prompt, [], {
+    const responseText = await callGLM4API(prompt, {
       temperature: 0.3,
       max_tokens: 500
     });
 
     try {
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(responseText);
       return {
         sentiment: parsed.sentiment || 'neutral',
         intensity: Math.max(0, Math.min(1, parsed.intensity || 0.5)),
@@ -113,8 +141,6 @@ export async function detectAdvancedIntent(text: string, context?: string[]): Pr
   suggestedActions: string[];
 }> {
   try {
-    const glmClient = new GLM4Client();
-    
     const contextInfo = context && context.length > 0 
       ? `\nCONTEXTO ANTERIOR:\n${context.slice(-3).join('\n')}`
       : '';
@@ -143,13 +169,13 @@ Responda em formato JSON:
   "suggestedActions": ["ação1", "ação2"]
 }`;
 
-    const response = await glmClient.sendMessage(prompt, [], {
+    const responseText = await callGLM4API(prompt, {
       temperature: 0.2,
       max_tokens: 400
     });
 
     try {
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(responseText);
       return {
         primary: parsed.primary || 'statement',
         confidence: Math.max(0, Math.min(1, parsed.confidence || 0.7)),
@@ -190,8 +216,6 @@ export async function extractAdvancedEntities(text: string): Promise<{
   summary: string;
 }> {
   try {
-    const glmClient = new GLM4Client();
-    
     const prompt = `Extraia todas as entidades importantes do seguinte texto:
 
 TEXTO: "${text}"
@@ -227,13 +251,13 @@ Responda em formato JSON:
   "summary": "Resumo das entidades encontradas"
 }`;
 
-    const response = await glmClient.sendMessage(prompt, [], {
+    const responseText = await callGLM4API(prompt, {
       temperature: 0.1,
       max_tokens: 600
     });
 
     try {
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(responseText);
       return {
         entities: Array.isArray(parsed.entities) ? parsed.entities.map((entity: any) => ({
           text: entity.text || '',
@@ -267,8 +291,6 @@ export async function analyzeAdvancedContent(
   responseType: 'answer' | 'explanation' | 'clarification' | 'suggestion' = 'answer'
 ): Promise<AdvancedAnalysisResult> {
   try {
-    const glmClient = new GLM4Client();
-    
     const contextInfo = context && context.length > 0 
       ? `\n\nCONTEXTO DA CONVERSA ANTERIOR:\n${context.join('\n')}`
       : '';
@@ -315,13 +337,13 @@ Com base na análise completa, forneça uma resposta estruturada em JSON:
 
 Seja inteligente, contextual e útil. Use toda a informação disponível para dar a melhor resposta possível.`;
 
-    const response = await glmClient.sendMessage(prompt, [], {
+    const responseText = await callGLM4API(prompt, {
       temperature: 0.4,
       max_tokens: 800
     });
 
     try {
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(responseText);
       return {
         answer: parsed.answer || "Não foi possível gerar uma resposta adequada.",
         confidence: Math.max(0, Math.min(1, parsed.confidence || 0.7)),
@@ -334,7 +356,7 @@ Seja inteligente, contextual e útil. Use toda a informação disponível para d
     } catch (parseError) {
       console.error('Erro ao parsear resposta de análise avançada:', parseError);
       return {
-        answer: response || "Não foi possível processar a solicitação.",
+        answer: responseText || "Não foi possível processar a solicitação.",
         confidence: 0.6,
         relatedTopics: ['análise', 'transcrição'],
         responseType,
@@ -362,8 +384,6 @@ export async function extractAdvancedTopics(text: string): Promise<{
   summary: string;
 }> {
   try {
-    const glmClient = new GLM4Client();
-    
     const prompt = `Analise o seguinte texto e extraia os tópicos principais:
 
 TEXTO: "${text}"
@@ -390,13 +410,13 @@ Responda em formato JSON:
   "summary": "Resumo dos tópicos encontrados"
 }`;
 
-    const response = await glmClient.sendMessage(prompt, [], {
+    const responseText = await callGLM4API(prompt, {
       temperature: 0.3,
       max_tokens: 500
     });
 
     try {
-      const parsed = JSON.parse(response);
+      const parsed = JSON.parse(responseText);
       return {
         topics: Array.isArray(parsed.topics) ? parsed.topics.map((topic: any) => ({
           topic: topic.topic || 'Desconhecido',

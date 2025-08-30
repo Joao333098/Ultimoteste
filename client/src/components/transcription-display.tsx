@@ -177,9 +177,10 @@ import { Textarea } from "@/components/ui/textarea";
       ? `Responda esta pergunta baseada no contexto da transcrição: "${sentence}"`
       : `Explique ou descreva o que está sendo dito nesta frase: "${sentence}"`;
 
-    analyzeContent({
+    analyzeAdvanced({
       transcription: transcript,
-      question: prompt
+      question: prompt,
+      useContext: true
     });
   };
 
@@ -204,9 +205,10 @@ import { Textarea } from "@/components/ui/textarea";
       return;
     }
 
-    analyzeContent({
+    analyzeAdvanced({
       transcription: transcript,
-      question: aiQuestion.trim()
+      question: aiQuestion.trim(),
+      useContext: true
     });
 
     setAiQuestion(""); // Limpar campo após enviar
