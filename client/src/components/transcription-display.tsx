@@ -45,7 +45,7 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
   
   // Estados para IA avançada
   const [aiQuestion, setAiQuestion] = useState("");
-  const [autoAiEnabled, setAutoAiEnabled] = useState(true);
+  const [autoAiEnabled, setAutoAiEnabled] = useState(false);
   const [lastAnalyzedText, setLastAnalyzedText] = useState("");
   const [isAutoAnalyzing, setIsAutoAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -138,11 +138,10 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      }
    });
 
-   // Processar transcript em tempo real - LÓGICA COMPLETAMENTE REFEITA
+   // Processar transcript em tempo real - PROTEGIDO contra análise automática
    useEffect(() => {
      if (!transcript) {
        setInterimText("");
-       setLastProcessedTranscript("");
        return;
      }
 
@@ -167,71 +166,9 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
          setLastProcessedTranscript(transcript);
        }
      }
-   }, [transcript]);
+   }, [transcript, lastProcessedTranscript]);
 
-   const processFinalTranscript = (finalText: string) => {
-     if (!finalText) return;
-
-     // LÓGICA NOVA: Detecta quando uma nova frase começa
-     // Compara com o último texto processado para encontrar a nova parte
-     let newText = finalText;
-
-     if (lastProcessedTranscript && finalText.startsWith(lastProcessedTranscript)) {
-       // Extrai apenas a parte nova do texto
-       newText = finalText.slice(lastProcessedTranscript.length).trim();
-     }
-
-     // Remove pontuação do início se houver
-     newText = newText.replace(/^[.,!?;\s]+/, '').trim();
-
-     if (!newText || newText.length < 2) return;
-
-     // Divide em frases baseadas em pontuação forte
-     const sentences = newText.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
-
-     if (sentences.length === 0) return;
-
-     const newBlocks: SentenceBlock[] = sentences.map(sentence => ({
-       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-       originalText: sentence,
-       isTranslating: false,
-       showTranslation: false,
-       timestamp: new Date().toLocaleTimeString('pt-BR', {
-         hour: '2-digit',
-         minute: '2-digit',
-         second: '2-digit'
-       })
-     }));
-
-     setSentenceBlocks(prev => {
-       const updated = [...prev, ...newBlocks];
-       
-       // Análise automática da IA se ativada - SÓ para perguntas claras
-       if (autoAiEnabled && newBlocks.length > 0 && !isAutoAnalyzing) {
-         const lastBlock = newBlocks[newBlocks.length - 1];
-         const text = lastBlock.originalText.toLowerCase();
-         
-         console.log("🔍 Verificando análise automática para:", text);
-         console.log("🔍 É pergunta?", detectQuestion(text));
-         console.log("🔍 É matemática?", detectMath(text));
-         
-         // Detecção mais específica - só perguntas e matemática claras
-         const isQuestion = detectQuestion(text);
-         const isMath = detectMath(text);
-         
-         if (isQuestion || isMath) {
-           console.log("✅ Iniciando análise automática");
-           setTimeout(() => handleAutoAiAnalysis(lastBlock.originalText), 800);
-         } else {
-           console.log("❌ Não é pergunta/matemática, pulando análise automática");
-         }
-       }
-       
-       return updated;
-     });
-   };
-
-   // Funções de detecção melhoradas
+   // Funções de detecção melhoradas - PRIMEIRO
    const detectQuestion = useCallback((text: string): boolean => {
      const questionPatterns = [
        /[?¿]/,  // Marcas de interrogação
@@ -277,35 +214,47 @@ import { useAdvancedAiAnalysis } from "@/hooks/use-advanced-ai-analysis";
      return mathPatterns.some(pattern => pattern.test(text));
    }, []);
 
-   // Análise automática da IA - versão que NÃO interfere nos blocos
-   const handleAutoAiAnalysis = useCallback(async (text: string) => {
-     if (isAutoAnalyzing || isAnalyzing) return;
-     
-     setIsAutoAnalyzing(true);
-     console.log("🤖 Análise IA automática iniciada para:", text.substring(0, 50));
-     
-     try {
-       const fullTranscript = sentenceBlocks.map(b => b.originalText).join('. ') + '. ' + text;
-       
-       // Análise automática vai para o resultado geral, não modifica os blocos
-       await analyzeAdvanced({
-         transcription: fullTranscript,
-         question: detectQuestion(text) 
-           ? `Pergunta: "${text}" - Responda de forma clara e direta.`
-           : `Conteúdo: "${text}" - Analise brevemente o que foi dito.`,
-         useContext: true
-       });
-     } catch (error) {
-       console.error("Erro na análise IA automática:", error);
-       toast({
-         title: "Erro na Análise Automática",
-         description: "Falha na análise da IA",
-         variant: "destructive",
-       });
-     } finally {
-       setIsAutoAnalyzing(false);
+   const processFinalTranscript = useCallback((finalText: string) => {
+     if (!finalText) return;
+
+     // LÓGICA SEGURA: Detecta quando uma nova frase começa
+     let newText = finalText;
+
+     if (lastProcessedTranscript && finalText.startsWith(lastProcessedTranscript)) {
+       // Extrai apenas a parte nova do texto
+       newText = finalText.slice(lastProcessedTranscript.length).trim();
      }
-   }, [analyzeAdvanced, sentenceBlocks, isAutoAnalyzing, isAnalyzing, detectQuestion]);
+
+     // Remove pontuação do início se houver
+     newText = newText.replace(/^[.,!?;\s]+/, '').trim();
+
+     if (!newText || newText.length < 2) return;
+
+     // Divide em frases baseadas em pontuação forte
+     const sentences = newText.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+
+     if (sentences.length === 0) return;
+
+     const newBlocks: SentenceBlock[] = sentences.map(sentence => ({
+       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+       originalText: sentence,
+       isTranslating: false,
+       showTranslation: false,
+       timestamp: new Date().toLocaleTimeString('pt-BR', {
+         hour: '2-digit',
+         minute: '2-digit',
+         second: '2-digit'
+       })
+     }));
+
+     // SEGURO: Atualizar blocos SEM análise automática interferindo
+     setSentenceBlocks(prev => {
+       console.log("📝 Adicionando novos blocos:", newBlocks.length);
+       return [...prev, ...newBlocks];
+     });
+
+     // Auto IA: DESABILITADA para evitar conflitos com transcrição
+   }, [lastProcessedTranscript, autoAiEnabled, detectQuestion, detectMath]);
 
    // Função específica para análise IA
    const handleAiClick = (blockId: string) => {
