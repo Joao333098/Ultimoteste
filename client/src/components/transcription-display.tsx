@@ -188,97 +188,190 @@ export default function TranscriptionDisplay({
   }, []);
 
   return (
-    <Card className="glass-card border-white/20 h-full flex flex-col">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
-          <Brain className="w-5 h-5" />
-          Transcrição em Tempo Real
+    <Card className="relative glass-card border-white/20 h-full flex flex-col overflow-hidden">
+      {/* Gradiente de fundo animado */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-pink-600/10 animate-pulse" />
+      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent" />
+      
+      <CardHeader className="relative pb-4 backdrop-blur-sm">
+        <CardTitle className="text-xl font-bold text-white flex items-center gap-3">
+          <div className="relative">
+            <Brain className="w-6 h-6 text-blue-400" />
+            <div className="absolute inset-0 bg-blue-400/30 rounded-full blur-md animate-pulse" />
+          </div>
+          <span className="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
+            Transcrição em Tempo Real
+          </span>
           {enhancedMode && (
-            <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
-              <Sparkles className="w-3 h-3 mr-1" />
+            <Badge variant="secondary" className="bg-gradient-to-r from-primary/20 to-purple-600/20 text-primary border-primary/30 animate-bounce">
+              <Sparkles className="w-3 h-3 mr-1 animate-spin" />
               IA Ativada
             </Badge>
           )}
         </CardTitle>
 
-        <div className="flex flex-wrap gap-2 mt-2">
-          <Badge variant="outline" className="border-white/30 text-white">
+        <div className="flex flex-wrap gap-3 mt-4">
+          <Badge 
+            variant="outline" 
+            className="border-white/40 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300"
+          >
+            <div className="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse" />
             Confiança: {Math.round(confidence * 100)}%
           </Badge>
 
           {detectQuestion(transcript) && (
-            <Badge variant="secondary" className="bg-blue-600/20 text-blue-300 border-blue-600/30">
-              <HelpCircle className="w-3 h-3 mr-1" />
-              Pergunta Detectada
+            <Badge 
+              variant="secondary" 
+              className="bg-gradient-to-r from-blue-600/30 to-blue-500/20 text-blue-200 border-blue-400/40 backdrop-blur-sm animate-pulse"
+            >
+              <HelpCircle className="w-3 h-3 mr-1 animate-bounce" />
+              🔍 Pergunta Detectada
             </Badge>
           )}
 
           {hasMathematical(transcript) && (
-            <Badge variant="secondary" className="bg-green-600/20 text-green-300 border-green-600/30">
-              <Calculator className="w-3 h-3 mr-1" />
-              Matemática Detectada
+            <Badge 
+              variant="secondary" 
+              className="bg-gradient-to-r from-green-600/30 to-emerald-500/20 text-green-200 border-green-400/40 backdrop-blur-sm animate-pulse"
+            >
+              <Calculator className="w-3 h-3 mr-1 animate-spin" />
+              🧮 Matemática Detectada
             </Badge>
           )}
 
           {isAnalyzing && (
-            <Badge variant="secondary" className="bg-purple-600/20 text-purple-300 border-purple-600/30 animate-pulse">
-              <Brain className="w-3 h-3 mr-1" />
-              Analisando...
+            <Badge 
+              variant="secondary" 
+              className="bg-gradient-to-r from-purple-600/30 to-pink-500/20 text-purple-200 border-purple-400/40 backdrop-blur-sm animate-pulse"
+            >
+              <Brain className="w-3 h-3 mr-1 animate-spin" />
+              🤖 Analisando...
             </Badge>
           )}
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col space-y-4">
-        {/* Área de Transcrição */}
-        <div className="flex-1 min-h-[300px]">
+      <CardContent className="relative flex-1 flex flex-col space-y-6 backdrop-blur-sm">
+        {/* Área de Transcrição com design glassmorphism */}
+        <div className="relative flex-1 min-h-[350px] group">
+          {/* Efeito de brilho no fundo */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10 rounded-lg" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent rounded-lg" />
+          
           <Textarea
             value={transcript}
             readOnly
-            placeholder={isListening ? "Fale algo... O reconhecimento está ativo." : "Inicie o reconhecimento para ver a transcrição aqui."}
-            className="h-full bg-white/10 border-white/30 text-white placeholder-white/60 resize-none"
+            placeholder={
+              isListening 
+                ? "🎤 Escutando... Fale algo para ver a transcrição em tempo real!" 
+                : "▶️ Clique em 'Iniciar' para começar a gravação e ver a mágica acontecer!"
+            }
+            className="
+              relative h-full bg-white/5 border-2 border-white/20 text-white placeholder-white/70 resize-none 
+              backdrop-blur-md rounded-xl shadow-2xl transition-all duration-300
+              hover:border-white/30 hover:bg-white/10 focus:border-blue-400/50 focus:bg-white/10
+              text-lg leading-relaxed font-medium tracking-wide
+            "
           />
 
-          {/* Texto Interino */}
+          {/* Texto Interino com animação bonita */}
           {interimText && (
-            <div className="mt-2 p-3 bg-blue-500/20 border border-blue-400/30 rounded-lg">
-              <p className="text-blue-200 text-sm font-medium">
-                <span className="opacity-70">Processando: </span>
-                {interimText}
-                <span className="animate-pulse">|</span>
-              </p>
+            <div className="absolute -bottom-2 left-0 right-0 mx-4">
+              <div className="relative p-4 bg-gradient-to-r from-blue-500/30 via-blue-400/20 to-purple-500/30 border-2 border-blue-400/40 rounded-xl backdrop-blur-lg shadow-xl">
+                {/* Efeito de onda */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent rounded-xl animate-pulse" />
+                
+                <p className="relative text-blue-100 text-base font-semibold flex items-center gap-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}} />
+                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}} />
+                    <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}} />
+                  </div>
+                  <span className="text-blue-300/80">Processando: </span>
+                  <span className="text-white font-bold">{interimText}</span>
+                  <span className="text-blue-300 animate-pulse text-xl">|</span>
+                </p>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Campo de Pergunta Manual */}
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              value={aiQuestion}
-              onChange={(e) => setAiQuestion(e.target.value)}
-              placeholder="Faça uma pergunta sobre o texto transcrito..."
-              className="flex-1 bg-white/10 border-white/30 text-white placeholder-white/60"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleManualQuestion();
-                }
-              }}
-            />
+        {/* Campo de Pergunta Manual com design melhorado */}
+        <div className="relative space-y-4">
+          {/* Fundo com gradiente */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-blue-600/5 to-pink-600/10 rounded-xl" />
+          
+          <div className="relative flex gap-3 p-4 bg-white/5 border border-white/20 rounded-xl backdrop-blur-sm">
+            <div className="flex-1 relative">
+              <Input
+                value={aiQuestion}
+                onChange={(e) => setAiQuestion(e.target.value)}
+                placeholder="💬 Faça uma pergunta sobre o texto transcrito..."
+                className="
+                  bg-white/10 border-white/30 text-white placeholder-white/70 
+                  backdrop-blur-sm rounded-lg transition-all duration-300
+                  hover:border-white/40 hover:bg-white/15 focus:border-blue-400/60 focus:bg-white/15
+                  text-base font-medium
+                "
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleManualQuestion();
+                  }
+                }}
+              />
+            </div>
+            
             <Button
               onClick={handleManualQuestion}
               disabled={isAnalyzing || !aiQuestion.trim() || !transcript}
-              className="bg-primary hover:bg-primary/80 text-white"
+              className="
+                relative bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 
+                text-white shadow-lg hover:shadow-xl transition-all duration-300
+                disabled:opacity-50 disabled:cursor-not-allowed
+              "
               size="icon"
             >
               <Send className="w-4 h-4" />
+              {isAnalyzing && (
+                <div className="absolute inset-0 bg-purple-500/20 rounded animate-pulse" />
+              )}
             </Button>
           </div>
 
-          <div className="text-xs text-white/70">
-            <p>💡 <strong>Dica:</strong> A IA detecta automaticamente perguntas, dúvidas e matemática no seu texto!</p>
-            <p>Tipos detectados: perguntas explícitas (?), matemática (2+2), dúvidas ("não sei", "talvez"), solicitações ("me ajude")</p>
+          {/* Dicas com design elegante */}
+          <div className="relative p-4 bg-gradient-to-r from-indigo-600/20 via-purple-600/15 to-pink-600/20 border border-white/20 rounded-xl backdrop-blur-sm">
+            <div className="absolute top-2 right-2">
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping" />
+            </div>
+            
+            <div className="space-y-2 text-white/80">
+              <p className="text-sm font-semibold flex items-center gap-2">
+                <span className="text-lg">🤖</span>
+                <span className="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent font-bold">
+                  IA Detecta Automaticamente:
+                </span>
+              </p>
+              
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                  <span className="text-blue-300">❓</span>
+                  <span>Perguntas explícitas</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                  <span className="text-green-300">🔢</span>
+                  <span>Cálculos matemáticos</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                  <span className="text-yellow-300">🤔</span>
+                  <span>Dúvidas implícitas</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 bg-white/10 rounded-lg">
+                  <span className="text-purple-300">🙋</span>
+                  <span>Solicitações de ajuda</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </CardContent>
